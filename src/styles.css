@@ -1,5 +1,9 @@
 /* AI Agent Sidebar */
 
+.ai-sidebar-hidden {
+  display: none !important;
+}
+
 .ai-sidebar-root {
   display: flex;
   flex-direction: column;
@@ -49,11 +53,29 @@
 }
 
 .ai-sidebar-tab-btn--active {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border-color: var(--interactive-accent);
   border-top-color: var(--background-primary);
 }
+
+.ai-sidebar-tab-btn--active[data-provider="anthropic"] {
+  background: rgba(245, 158, 11, 0.18) !important;
+  color: #f59e0b !important;
+}
+
+.ai-sidebar-tab-btn--active[data-provider="openai"] {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #10b981 !important;
+}
+
+.ai-sidebar-tab-btn--active[data-provider="google"] {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #3b82f6 !important;
+}
+
+.ai-sidebar-tab-btn--active[data-provider="github"] {
+  background: rgba(139, 92, 246, 0.18) !important;
+  color: #8b5cf6 !important;
+}
+
 
 /* Chat container */
 .ai-sidebar-chat-container {
@@ -366,13 +388,6 @@
    Settings — provider cards
    ═══════════════════════════════════════════════════════════════ */
 
-.ais-settings h2.ais-page-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  color: var(--text-normal);
-}
-
 /* ── Section header ─────────────────────────────────────────── */
 .ais-section-header {
   display: flex;
@@ -645,7 +660,7 @@
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 14px;
+  font-size: 20px;
   color: var(--text-muted);
   pointer-events: none;
   line-height: 1;
