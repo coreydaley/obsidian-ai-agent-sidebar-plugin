@@ -8,6 +8,18 @@
  * Brand SVG icons sourced from Simple Icons (simpleicons.org).
  * All icons use currentColor and viewBox 0 0 24 24.
  */
+/**
+ * Parse an SVG string safely and append it to a container element.
+ * Uses DOMParser so no innerHTML is set on the target element.
+ */
+export function appendAgentIcon(container: Element, agentId: string): void {
+  const svgString = AGENT_ICONS[agentId];
+  if (!svgString) return;
+  const doc = new DOMParser().parseFromString(svgString, "image/svg+xml");
+  const svgEl = doc.documentElement;
+  container.appendChild(document.adoptNode(svgEl));
+}
+
 export const AGENT_ICONS: Record<string, string> = {
   // Claude — simpleicons.org/icons/claude.svg
   claude: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
