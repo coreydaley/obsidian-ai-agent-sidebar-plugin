@@ -1,6 +1,6 @@
 ---
 description: Publish a new plugin release (bump version, tag, push)
-allowed-tools: Bash(git log:*), Bash(git tag:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(npm version:*), Bash(cat:*), AskUserQuestion
+allowed-tools: Bash(git log:*), Bash(git tag:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(npm version:*), Bash(cat:*)
 ---
 
 # Release
@@ -54,28 +54,23 @@ Scan every commit message using these rules (highest precedence wins):
 Read the current version from `manifest.json` (field `"version"`).
 Apply the bump to compute the proposed new version.
 
-### 4 — Show summary and confirm
+### 4 — Show summary
 
 Display:
 - Last tag (or "none")
 - Current version
-- Proposed new version and bump type
+- New version and bump type
 - The commit(s) that drove the bump decision
 - Full list of commits being released
 
-Ask the user to confirm using `AskUserQuestion` with these options:
-- "Yes, release <proposed-version>" — proceed
-- "No, cancel" — stop, make no changes
-- "Override version manually" — prompt for a custom version string, then use
-  that instead (validate it matches `\d+\.\d+\.\d+`)
+Then proceed immediately — do not ask for confirmation.
 
 ### 5 — Run `npm version`
 
-Run: `npm version <bump-type-or-exact-version> --message "<version>"`
+Run: `npm version <bump-type> --message "<version>"`
 
 Where:
-- `<bump-type-or-exact-version>` is `patch`, `minor`, `major`, or the exact
-  version string if the user provided a manual override.
+- `<bump-type>` is `patch`, `minor`, or `major`.
 - `.npmrc` sets `tag-version-prefix=` so the tag will be `0.2.0` not `v0.2.0`.
 
 `npm version` will:
