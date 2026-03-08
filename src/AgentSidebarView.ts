@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
-import { AGENT_ICONS } from "./icons";
+import { appendAgentIcon } from "./icons";
 import { AgentChatTab } from "./AgentChatTab";
 import { AGENT_ADAPTERS } from "./AgentRunner";
 import { FileOperationsHandler } from "./FileOperationsHandler";
@@ -90,11 +90,12 @@ export class AgentSidebarView extends ItemView {
   private async addAgentTab(detection: AgentDetectionResult): Promise<void> {
     const tabBtn = this.tabBar.createEl("button", { cls: "ai-sidebar-tab-btn" });
     tabBtn.title = detection.name;
-    tabBtn.innerHTML = AGENT_ICONS[detection.id] ?? "";
+    const provider = PROVIDERS.find(p => p.agentId === detection.id);
+    if (provider) tabBtn.dataset.provider = provider.id;
+    appendAgentIcon(tabBtn, detection.id);
     tabBtn.addEventListener("click", () => this.activateTab(detection.id));
 
-    const paneEl = this.chatContainer.createDiv({ cls: "ai-sidebar-pane" });
-    paneEl.style.display = "none";
+    const paneEl = this.chatContainer.createDiv({ cls: "ai-sidebar-pane ai-sidebar-hidden" });
 
     const detectionResults = this.plugin.agentDetector.getCache() ?? [];
     const runner = await createRunner(

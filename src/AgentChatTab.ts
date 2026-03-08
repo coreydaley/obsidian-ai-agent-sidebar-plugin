@@ -333,11 +333,11 @@ export class AgentChatTab {
   }
 
   show(): void {
-    this.containerEl.style.display = "";
+    this.containerEl.removeClass("ai-sidebar-hidden");
   }
 
   hide(): void {
-    this.containerEl.style.display = "none";
+    this.containerEl.addClass("ai-sidebar-hidden");
   }
 
   destroy(): void {
