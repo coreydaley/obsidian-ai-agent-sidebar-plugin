@@ -106,7 +106,7 @@ afterEach(() => {
 describe("plain text streaming", () => {
   it("produces token events and complete event", async () => {
     const provider = new MockProviderAdapter(["Hello ", "world"]);
-    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, provider);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
 
     const result = await runAndCollect(runner);
 
@@ -122,7 +122,7 @@ describe(":::file-op protocol parsing", () => {
   it("parses a :::file-op read block from the API stream", async () => {
     const block = readBlock("api-test.md");
     const provider = new MockProviderAdapter([block]);
-    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, provider);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
 
     const result = await runAndCollect(runner);
 
@@ -137,7 +137,7 @@ describe(":::file-op protocol parsing", () => {
     const block = readBlock("split-api.md");
     const [part1, part2] = splitAt(block, 6); // ":::fil" + rest
     const provider = new MockProviderAdapter([part1, part2]);
-    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, provider);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
 
     const result = await runAndCollect(runner);
 
@@ -152,7 +152,7 @@ describe("inactivity timeout", () => {
     vi.useFakeTimers();
 
     const provider = new HangingProviderAdapter();
-    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, provider);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
 
     // Capture the error event via a promise so we don't need run() to resolve.
     // The run() promise stays suspended inside the hanging generator — we never
@@ -175,7 +175,7 @@ describe("inactivity timeout", () => {
 describe("dispose()", () => {
   it("emits error event when dispose() is called before run()", async () => {
     const provider = new MockProviderAdapter(["text"]);
-    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, provider);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
 
     runner.dispose();
 

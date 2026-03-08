@@ -87,3 +87,7 @@ export class Notice {
 export function normalizePath(p: string): string {
   return p.replace(/\\/g, "/");
 }
+
+export async function requestUrl(_req: string | { url: string; headers?: Record<string, string> }): Promise<{ status: number; json: unknown; text: string }> {
+  return { status: 200, json: {}, text: "" };
+}

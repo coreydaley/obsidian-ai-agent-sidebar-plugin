@@ -14,12 +14,13 @@ An Obsidian plugin that adds a sidebar where you can chat with AI agents (Claude
 
 ## Supported Agents
 
-| Agent | Provider | CLI Command | API Only |
+| Agent | Provider | CLI | API |
 | --- | --- | --- | --- |
-| Claude Code | Anthropic | `claude` | No |
-| OpenAI Codex | OpenAI | `codex` | No |
-| Google Gemini | Google | — | Yes |
-| GitHub Copilot | GitHub | `copilot` | No |
+| Claude Code | Anthropic | ✓ | ✓ |
+| OpenAI Codex | OpenAI | ✓ | ✓ |
+| Google Gemini | Google | ✗ | ✓ |
+| GitHub Copilot | GitHub | ✓ | ✗ |
+| OpenAI Compatible | Custom (Ollama, vLLM, …) | ✗ | ✓ |
 
 Obsidian desktop only — mobile is not supported.
 
