@@ -16,6 +16,8 @@ export interface ProviderConfig {
   defaultModel: string;
   /** Placeholder text for the extra CLI args input */
   cliArgsPlaceholder?: string;
+  /** When true, no API key env var is required — connection details come from AgentConfig */
+  apiKeyOptional?: boolean;
 }
 
 export const PROVIDERS: ProviderConfig[] = [
@@ -70,5 +72,16 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultMode: "cli",
     defaultModel: "",
     cliArgsPlaceholder: "e.g. --model gpt-4o",
+  },
+  {
+    id: "openai-compat",
+    label: "OpenAI Compatible",
+    agentId: "openai-compat",
+    agentLabel: "Custom (Ollama, vLLM, …)",
+    cliSupported: false,
+    apiSupported: true,
+    defaultMode: "api",
+    defaultModel: "llama3.2",
+    apiKeyOptional: true,
   },
 ];

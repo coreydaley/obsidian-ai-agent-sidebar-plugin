@@ -1,5 +1,5 @@
-export type AgentId = "claude" | "codex" | "gemini" | "copilot";
-export type ProviderId = "anthropic" | "openai" | "google" | "github";
+export type AgentId = "claude" | "codex" | "gemini" | "copilot" | "openai-compat";
+export type ProviderId = "anthropic" | "openai" | "google" | "github" | "openai-compat";
 export type AccessMode = "cli" | "api";
 
 export interface AgentConfig {
@@ -8,6 +8,10 @@ export interface AgentConfig {
   yoloMode: boolean;
   accessMode: AccessMode;
   selectedModel?: string;
+  /** OpenAI-compatible endpoint base URL (e.g. http://localhost:11434/v1) */
+  openaiCompatBaseUrl?: string;
+  /** Optional API key for OpenAI-compatible endpoints */
+  openaiCompatApiKey?: string;
 }
 
 export interface AgentDetectionResult {
