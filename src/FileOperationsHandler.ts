@@ -76,7 +76,7 @@ export class FileOperationsHandler {
     const existing = this.app.vault.getAbstractFileByPath(safePath);
 
     if (existing instanceof TFile) {
-      await this.app.vault.modify(existing, content);
+      await this.app.vault.process(existing, () => content);
     } else {
       // Create parent folders if needed
       const parts = safePath.split("/");
