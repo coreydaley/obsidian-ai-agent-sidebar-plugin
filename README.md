@@ -136,6 +136,31 @@ The plugin intercepts structured operation blocks emitted by the agent, executes
 
 All file paths are validated against the vault root to prevent directory traversal. Delete operations always show a confirmation dialog before executing.
 
+## Accessing Files Outside the Vault
+
+This plugin accesses files outside your Obsidian vault in two situations:
+
+**Shell profile files (always, on startup)**
+On macOS and Linux, GUI applications inherit a stripped environment that omits `PATH` entries added by Homebrew, nvm, Volta, and similar tools, and omits API key variables set in shell profiles. To work around this, the plugin spawns your login shell (`$SHELL -l -c env`) once at startup and reads the resulting environment. This causes your shell profile files (`.zshrc`, `.bash_profile`, `.profile`, etc.) to be executed, which is the only way to reliably locate CLI tools and read API keys set in those files. No profile file content is stored or transmitted — only the resolved environment variables are used.
+
+**CLI tool processes (CLI mode only)**
+In CLI mode the plugin spawns `claude`, `codex`, or `copilot` as a subprocess. These are full programs that run with access to your entire filesystem, not just the vault. The plugin's own file-operation protocol (the `:::file-op` blocks) validates all paths against the vault root and rejects traversal attempts, but the CLI tools themselves are not sandbox-constrained by the plugin. A user prompt that asks the agent to read or modify files outside the vault could result in the CLI tool doing so. In YOLO mode, confirmation prompts inside the CLI tool are also disabled. Use CLI mode only with agents and prompts you trust.
+
+## Network Use
+
+This plugin contacts external services. All network requests are initiated by user action (sending a message or fetching the model list) — no background network calls are made.
+
+| Service | Endpoint | When contacted | Why |
+| --- | --- | --- | --- |
+| Anthropic API | `api.anthropic.com` | API mode only | Send messages to Claude and list available models |
+| OpenAI API | `api.openai.com` | API mode only | Send messages to Codex/GPT and list available models |
+| Google Generative AI API | `generativelanguage.googleapis.com` | API mode only | Send messages to Gemini and list available models |
+| Claude Code CLI | Anthropic servers (via `claude` binary) | CLI mode only | The `claude` CLI handles its own network calls to Anthropic |
+| OpenAI Codex CLI | OpenAI servers (via `codex` binary) | CLI mode only | The `codex` CLI handles its own network calls to OpenAI |
+| GitHub Copilot CLI | GitHub servers (via `copilot` binary) | CLI mode only | The `copilot` CLI handles its own network calls to GitHub |
+
+In API mode the plugin communicates directly with provider APIs using your API key. In CLI mode the plugin spawns the installed CLI tool as a subprocess; all network communication is handled by that tool using its own authentication.
+
 ## Privacy
 
 When you use this plugin, the content of your open note and any files the agent reads are sent to the AI provider's servers. **Do not use this plugin with notes containing confidential, sensitive, or personally identifiable information you do not want transmitted to third-party AI services.**
