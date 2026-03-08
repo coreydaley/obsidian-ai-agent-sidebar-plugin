@@ -1,7 +1,7 @@
 {
   "id": "ai-agent-sidebar",
   "name": "AI Agent Sidebar",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "minAppVersion": "1.0.0",
   "description": "Chat with AI agents (Claude Code, Codex, Gemini, Copilot) about your vault, with support for both CLI and API integrations.",
   "author": "Corey Daley",
