@@ -1,6 +1,6 @@
 {
   "name": "obsidian-ai-agent-sidebar",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Obsidian plugin that adds an AI agent chat sidebar with vault CRUD capabilities",
   "main": "main.js",
   "scripts": {
