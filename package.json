@@ -17,7 +17,7 @@
     "gemini",
     "copilot"
   ],
-  "author": "",
+  "author": "Corey Daley",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^18.0.0",
