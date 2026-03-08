@@ -28,9 +28,11 @@ function createToggle(
   parent: HTMLElement,
   checked: boolean,
   disabled: boolean,
-  onChange: (v: boolean) => void | Promise<void>
+  onChange: (v: boolean) => void | Promise<void>,
+  testId?: string
 ): HTMLInputElement {
   const label = parent.createEl("label", { cls: "ais-toggle" });
+  if (testId) label.dataset.testid = testId;
   const input = label.createEl("input");
   input.type = "checkbox";
   input.checked = checked;
@@ -125,6 +127,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
   private renderProviderCard(parent: HTMLElement, provider: ProviderConfig): void {
     const agentId = provider.agentId;
     const card = parent.createDiv({ cls: "ais-card" });
+    card.dataset.testid = `ai-agent-settings-section-${provider.id}`;
 
     const renderContent = (detection: AgentDetectionResult | null) => {
       card.empty();
@@ -222,7 +225,8 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
         void this.plugin.saveSettings().then(() => {
           void this.plugin.getAgentSidebarView()?.refreshTabs();
         });
-      }
+      },
+      `ai-agent-enable-toggle-${agentId}`
     );
   }
 

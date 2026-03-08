@@ -39,6 +39,7 @@ export class AgentSidebarView extends ItemView {
     const root = this.containerEl.children[1] as HTMLElement;
     root.empty();
     root.addClass("ai-sidebar-root");
+    root.dataset.testid = "ai-agent-sidebar";
 
     this.chatContainer = root.createDiv({ cls: "ai-sidebar-chat-container" });
     this.tabBar = root.createDiv({ cls: "ai-sidebar-tab-bar" });
@@ -128,6 +129,7 @@ export class AgentSidebarView extends ItemView {
 
   private renderEmptyState(): void {
     const emptyEl = this.chatContainer.createDiv({ cls: "ai-sidebar-no-agents" });
+    emptyEl.dataset.testid = "ai-agent-empty-state";
     emptyEl.createEl("p", { text: "No agents enabled." });
     emptyEl.createEl("p", {
       text: "Open settings → AI agent sidebar to install and enable agents.",
