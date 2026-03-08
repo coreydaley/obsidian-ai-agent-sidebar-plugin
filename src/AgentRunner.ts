@@ -59,6 +59,13 @@ export const AGENT_ADAPTERS: AgentAdapterConfig[] = [
     processModel: "one-shot",
     buildArgs: () => [],
   },
+  {
+    id: "openai-compat" as AgentId,
+    name: "OpenAI Compatible",
+    command: "",
+    processModel: "one-shot",
+    buildArgs: () => [],
+  },
 ];
 
 export interface AgentRunnerEvents {

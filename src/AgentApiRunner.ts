@@ -4,6 +4,7 @@ import type { FileOperationsHandler } from "./FileOperationsHandler";
 import { AnthropicProvider } from "./providers/AnthropicProvider";
 import { OpenAIProvider } from "./providers/OpenAIProvider";
 import { GeminiProvider } from "./providers/GeminiProvider";
+import { OpenAICompatProvider } from "./providers/OpenAICompatProvider";
 import type { ProviderAdapter } from "./types";
 
 const FILE_OP_OPEN = ":::file-op";
@@ -31,6 +32,7 @@ export class AgentApiRunner extends EventEmitter implements AgentExecutionRunner
     model: string,
     fileOpsHandler: FileOperationsHandler,
     debugMode = false,
+    baseURL?: string,
     /** For testing only — do not pass from production callers. */
     provider?: ProviderAdapter
   ) {
@@ -40,17 +42,18 @@ export class AgentApiRunner extends EventEmitter implements AgentExecutionRunner
     this.model = model;
     this.fileOpsHandler = fileOpsHandler;
     this.debugMode = debugMode;
-    this.provider = provider ?? this.createProvider(agentId, apiKey);
+    this.provider = provider ?? this.createProvider(agentId, apiKey, baseURL);
   }
 
   private debug(text: string): void {
     if (this.debugMode) this.emit("raw", "stdout", text);
   }
 
-  private createProvider(agentId: AgentId, apiKey: string): ProviderAdapter {
+  private createProvider(agentId: AgentId, apiKey: string, baseURL?: string): ProviderAdapter {
     if (agentId === "claude") return new AnthropicProvider(apiKey);
     if (agentId === "codex") return new OpenAIProvider(apiKey);
     if (agentId === "gemini") return new GeminiProvider(apiKey);
+    if (agentId === "openai-compat") return new OpenAICompatProvider(apiKey, baseURL ?? "http://localhost:11434/v1");
     throw new Error(`No API provider for agent '${agentId}'`);
   }
 

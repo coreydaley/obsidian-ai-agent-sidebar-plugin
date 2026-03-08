@@ -66,7 +66,7 @@ export class AgentDetector {
     // When detected, store found var so the key can be retrieved; when not, store primary so UI can show what to set
     const apiKeyVar = foundVar ?? primaryVar;
 
-    // Google (Gemini) has no CLI — skip binary detection
+    // API-only providers: skip binary detection
     if (!provider?.cliSupported) {
       return {
         id: adapter.id,
@@ -74,7 +74,8 @@ export class AgentDetector {
         command: adapter.command ?? "",
         path: "",
         isInstalled: false,
-        hasApiKey,
+        // When no API key env var is required, treat as always available
+        hasApiKey: provider?.apiKeyOptional ? true : hasApiKey,
         apiKeyVar,
       };
     }

@@ -40,11 +40,26 @@ export async function createRunner(
   }
 
   if (accessMode === "api") {
-    if (!detection?.hasApiKey || !detection.apiKeyVar) {
-      return createErrorRunner("API key not detected. Set the required environment variable in your shell profile.");
-    }
     if (!provider) {
       return createErrorRunner(`No provider config found for agent '${agentId}'.`);
+    }
+
+    // OpenAI-compatible: connection details come from AgentConfig, not env vars
+    if (agentId === "openai-compat") {
+      const baseUrl = agentConfig.openaiCompatBaseUrl?.trim();
+      if (!baseUrl) {
+        return createErrorRunner("No base URL configured. Set the URL in Settings → AI Agent Sidebar.");
+      }
+      const apiKey = agentConfig.openaiCompatApiKey ?? "";
+      const selectedModel = agentConfig.selectedModel?.trim() ?? provider.defaultModel;
+      if (!selectedModel) {
+        return createErrorRunner("No model configured. Set the model name in Settings → AI Agent Sidebar.");
+      }
+      return new AgentApiRunner(agentId, apiKey, selectedModel, fileOpsHandler, settings.debugMode, baseUrl);
+    }
+
+    if (!detection?.hasApiKey || !detection.apiKeyVar) {
+      return createErrorRunner("API key not detected. Set the required environment variable in your shell profile.");
     }
 
     // Security: extract only the specific OBSIDIAN_AI_AGENT_SIDEBAR_* key
