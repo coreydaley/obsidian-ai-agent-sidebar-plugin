@@ -56,9 +56,9 @@ export default class AgentSidebarPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
 
     // Ensure all agent configs exist and have required fields (migration from SPRINT-001)
-    const agentIds: Array<keyof typeof this.settings.agents> = ["claude", "codex", "gemini", "copilot"];
+    const agentIds: Array<keyof typeof this.settings.agents> = ["claude", "codex", "gemini", "copilot", "openai-compat"];
     const defaultAccessModes: Record<string, "cli" | "api"> = {
-      claude: "cli", codex: "cli", gemini: "api", copilot: "cli",
+      claude: "cli", codex: "cli", gemini: "api", copilot: "cli", "openai-compat": "api",
     };
     for (const id of agentIds) {
       if (!this.settings.agents[id]) {
@@ -68,8 +68,8 @@ export default class AgentSidebarPlugin extends Plugin {
         if (!this.settings.agents[id].accessMode) {
           this.settings.agents[id].accessMode = id === "gemini" ? "api" : "cli";
         }
-        // Migrate: if gemini was enabled with CLI mode (SPRINT-001 state), switch to api
-        if (id === "gemini" && this.settings.agents[id].accessMode === "cli") {
+        // Migrate: if gemini or openai-compat was set to CLI mode, switch to api
+        if ((id === "gemini" || id === "openai-compat") && this.settings.agents[id].accessMode === "cli") {
           this.settings.agents[id].accessMode = "api";
         }
         // Migrate: add yoloMode if missing

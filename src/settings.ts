@@ -9,10 +9,11 @@ import { appendAgentIcon } from "./icons";
 
 export const DEFAULT_SETTINGS: PluginSettings = {
   agents: {
-    claude:  { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
-    codex:   { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
-    gemini:  { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
-    copilot: { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
+    claude:         { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
+    codex:          { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
+    gemini:         { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
+    copilot:        { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
+    "openai-compat": { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
   },
   persistConversations: false,
   debugMode: false,
@@ -337,8 +338,52 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
         void this.plugin.saveSettings();
       });
     } else if (mode === "api" && provider.apiSupported) {
-      this.renderModelField(container, agentId, provider.defaultModel);
+      if (agentId === "openai-compat") {
+        this.renderOpenAICompatFields(container, agentId);
+      } else {
+        this.renderModelField(container, agentId, provider.defaultModel);
+      }
     }
+  }
+
+  private renderOpenAICompatFields(container: HTMLElement, agentId: AgentId): void {
+    const config = this.plugin.settings.agents[agentId];
+
+    const urlRow = container.createDiv({ cls: "ais-field-row" });
+    urlRow.createEl("label", { cls: "ais-field-label", text: "Base URL" });
+    const urlInput = urlRow.createEl("input", {
+      cls: "ais-field-input",
+      attr: { type: "text", placeholder: "http://localhost:11434/v1" },
+    });
+    urlInput.value = config.openaiCompatBaseUrl ?? "";
+    urlInput.addEventListener("change", () => {
+      config.openaiCompatBaseUrl = urlInput.value.trim();
+      void this.plugin.saveSettings();
+    });
+
+    const keyRow = container.createDiv({ cls: "ais-field-row" });
+    keyRow.createEl("label", { cls: "ais-field-label", text: "API Key" });
+    const keyInput = keyRow.createEl("input", {
+      cls: "ais-field-input",
+      attr: { type: "password", placeholder: "optional" },
+    });
+    keyInput.value = config.openaiCompatApiKey ?? "";
+    keyInput.addEventListener("change", () => {
+      config.openaiCompatApiKey = keyInput.value;
+      void this.plugin.saveSettings();
+    });
+
+    const modelRow = container.createDiv({ cls: "ais-field-row" });
+    modelRow.createEl("label", { cls: "ais-field-label", text: "Model" });
+    const modelInput = modelRow.createEl("input", {
+      cls: "ais-field-input",
+      attr: { type: "text", placeholder: "llama3.2" },
+    });
+    modelInput.value = config.selectedModel ?? "";
+    modelInput.addEventListener("change", () => {
+      config.selectedModel = modelInput.value.trim() || undefined;
+      void this.plugin.saveSettings();
+    });
   }
 
   private renderModelField(body: HTMLElement, agentId: AgentId, defaultModel: string): void {
