@@ -88,11 +88,12 @@ Where:
 
 ### 6 — Push commits and tag
 
-Run: `git push --follow-tags`
+Run: `git push --set-upstream origin main --follow-tags`
 
-This pushes the version-bump commit **and** the tag in one step. The tag push
-triggers the GitHub Actions `release.yml` workflow, which builds the plugin and
-attaches `main.js`, `manifest.json`, and `styles.css` to the GitHub release.
+This pushes the version-bump commit **and** the tag in one step, setting the
+upstream tracking branch if it is not already set. The tag push triggers the
+GitHub Actions `release.yml` workflow, which builds the plugin and attaches
+`main.js`, `manifest.json`, and `styles.css` to the GitHub release.
 
 ### 7 — Confirm
 
