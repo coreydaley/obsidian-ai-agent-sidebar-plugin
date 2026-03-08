@@ -8,7 +8,6 @@ import type { PluginSettings } from "./types";
 export default class AgentSidebarPlugin extends Plugin {
   settings: PluginSettings = DEFAULT_SETTINGS;
   agentDetector: AgentDetector = new AgentDetector();
-  agentSidebarView: AgentSidebarView | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -19,11 +18,7 @@ export default class AgentSidebarPlugin extends Plugin {
     // Register the sidebar view
     this.registerView(
       AGENT_SIDEBAR_VIEW_TYPE,
-      (leaf) => {
-        const view = new AgentSidebarView(leaf, this);
-        this.agentSidebarView = view;
-        return view;
-      }
+      (leaf) => new AgentSidebarView(leaf, this)
     );
 
     // Ribbon icon
@@ -42,6 +37,12 @@ export default class AgentSidebarPlugin extends Plugin {
 
     // Settings tab
     this.addSettingTab(new AgentSidebarSettingTab(this.app, this));
+  }
+
+  /** Retrieve the active sidebar view without storing a stale reference. */
+  getAgentSidebarView(): AgentSidebarView | null {
+    const leaf = this.app.workspace.getLeavesOfType(AGENT_SIDEBAR_VIEW_TYPE)[0];
+    return leaf?.view instanceof AgentSidebarView ? leaf.view : null;
   }
 
   async onunload(): Promise<void> {

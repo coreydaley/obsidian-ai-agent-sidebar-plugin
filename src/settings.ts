@@ -1,11 +1,11 @@
-import { App, Notice, PluginSettingTab, requestUrl } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, requestUrl } from "obsidian";
 import type AgentSidebarPlugin from "./main";
 import type { AgentDetectionResult, AgentId, AccessMode, PluginSettings } from "./types";
 import { AGENT_ADAPTERS } from "./AgentRunner";
 import { SHELL_INJECTION_PATTERN } from "./AgentDetector";
 import { PROVIDERS } from "./providers";
 import type { ProviderConfig } from "./providers";
-import { AGENT_ICONS } from "./icons";
+import { appendAgentIcon } from "./icons";
 
 export const DEFAULT_SETTINGS: PluginSettings = {
   agents: {
@@ -57,7 +57,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("ais-settings");
-    containerEl.createEl("h2", { text: "AI Agent Sidebar", cls: "ais-page-title" });
+    new Setting(containerEl).setName("AI Agent Sidebar").setHeading();
 
     this.cardUpdaters.clear();
     const cached = this.plugin.agentDetector.getCache();
@@ -174,7 +174,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
 
     // Icon
     const icon = header.createDiv({ cls: `ais-provider-icon ais-icon--${provider.id}` });
-    icon.innerHTML = AGENT_ICONS[agentId] ?? "";
+    appendAgentIcon(icon, agentId);
 
     // Meta (name + dots + agent label)
     const meta = header.createDiv({ cls: "ais-provider-meta" });
@@ -220,7 +220,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
       async (val) => {
         this.plugin.settings.agents[agentId].enabled = val;
         await this.plugin.saveSettings();
-        this.plugin.agentSidebarView?.refreshTabs();
+        this.plugin.getAgentSidebarView()?.refreshTabs();
       }
     );
   }
@@ -260,7 +260,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
       checkbox.addEventListener("change", () => {
         const newMode: AccessMode = checkbox.checked ? "api" : "cli";
         const revert = () => { checkbox.checked = !checkbox.checked; };
-        const hasHistory = this.plugin.agentSidebarView?.hasConversationHistory(agentId) ?? false;
+        const hasHistory = this.plugin.getAgentSidebarView()?.hasConversationHistory(agentId) ?? false;
         if (hasHistory) {
           const ok = window.confirm(
             `Switch to ${newMode.toUpperCase()} mode? The current conversation for ${provider.agentLabel} will be cleared.`
@@ -271,7 +271,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
         apiLabel.toggleClass("ais-mode-flip-label--active", newMode === "api");
         config.accessMode = newMode;
         this.plugin.saveSettings();
-        this.plugin.agentSidebarView?.refreshTabs();
+        this.plugin.getAgentSidebarView()?.refreshTabs();
         fields.empty();
         this.populateCardFields(fields, provider, agentId, newMode, config);
       });
@@ -304,7 +304,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
         yoloCheck.addEventListener("change", async () => {
           config.yoloMode = yoloCheck.checked;
           await this.plugin.saveSettings();
-          this.plugin.agentSidebarView?.refreshTabs();
+          this.plugin.getAgentSidebarView()?.refreshTabs();
         });
       }
 
