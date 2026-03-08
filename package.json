@@ -1,6 +1,6 @@
 {
   "name": "obsidian-ai-agent-sidebar",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Obsidian plugin that adds an AI agent chat sidebar with vault CRUD capabilities",
   "main": "main.js",
   "scripts": {
@@ -8,7 +8,15 @@
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
-  "keywords": ["obsidian", "ai", "plugin", "claude", "codex", "gemini", "copilot"],
+  "keywords": [
+    "obsidian",
+    "ai",
+    "plugin",
+    "claude",
+    "codex",
+    "gemini",
+    "copilot"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -18,5 +26,10 @@
     "obsidian": "latest",
     "tslib": "^2.4.0",
     "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.37.0",
+    "@google/generative-ai": "0.24.0",
+    "openai": "4.85.4"
   }
 }
