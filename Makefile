@@ -1,19 +1,29 @@
-PLUGIN_ID := obsidian-ai-agent-sidebar
-VAULT_DIR  := vault
+PLUGIN_ID        := obsidian-ai-agent-sidebar
+VAULT_DIR        := vault
 VAULT_PLUGIN_DIR := $(VAULT_DIR)/.obsidian/plugins/$(PLUGIN_ID)
+HOT_RELOAD_DIR   := $(VAULT_DIR)/.obsidian/plugins/hot-reload
+HOT_RELOAD_VER   := 0.3.0
+HOT_RELOAD_BASE  := https://github.com/pjeby/hot-reload/releases/download/$(HOT_RELOAD_VER)
 
-.PHONY: dev build install clean test
+.PHONY: dev vault-setup build install clean test
 
-dev: clean build
+dev: vault-setup
+	@echo "Starting watcher — changes to src/ will sync to $(VAULT_PLUGIN_DIR) automatically."
+	npm run dev
+
+vault-setup: clean build
 	@echo "Creating sample vault..."
 	mkdir -p $(VAULT_PLUGIN_DIR)
-	@echo '["$(PLUGIN_ID)"]' > $(VAULT_DIR)/.obsidian/community-plugins.json
+	mkdir -p $(HOT_RELOAD_DIR)
+	@echo '["hot-reload","$(PLUGIN_ID)"]' > $(VAULT_DIR)/.obsidian/community-plugins.json
+	curl -fsSL $(HOT_RELOAD_BASE)/main.js -o $(HOT_RELOAD_DIR)/main.js
+	curl -fsSL $(HOT_RELOAD_BASE)/manifest.json -o $(HOT_RELOAD_DIR)/manifest.json
+	touch $(VAULT_PLUGIN_DIR)/.hotreload
 	@printf '# AI Agent Sidebar — Test Vault\n\nThis is a sample vault for testing the AI Agent Sidebar plugin.\n\nOpen the sidebar using the bot icon in the ribbon or via the command palette: **Open AI Agent Sidebar**.\n\n## Sample Notes\n\n- [[Meeting Notes]]\n- [[Project Ideas]]\n' > "$(VAULT_DIR)/Welcome.md"
 	@printf '# Meeting Notes\n\n## 2026-03-07 — Project Kickoff\n\n**Attendees**: Engineering team\n\n**Topics**:\n- Reviewed project scope for AI Agent Sidebar plugin\n- Decided to support Claude Code, Codex, Gemini, and Copilot CLI\n- Agreed on :::file-op protocol for structured vault operations\n\n**Action Items**:\n- [ ] Set up dev vault for testing\n- [ ] Install at least one CLI agent\n- [ ] Test end-to-end flow with Claude Code\n' > "$(VAULT_DIR)/Meeting Notes.md"
 	@printf '# Project Ideas\n\nA scratch pad for testing the AI agent'\''s read/write capabilities.\n\n## Ideas to Explore\n\n- Ask the agent to summarize Meeting Notes\n- Ask the agent to create a new note\n- Ask the agent to add items to this list\n' > "$(VAULT_DIR)/Project Ideas.md"
-	cp main.js manifest.json $(VAULT_PLUGIN_DIR)/
-	cp src/styles.css $(VAULT_PLUGIN_DIR)/
-	@echo "Done. Open vault/ as a vault in Obsidian to test."
+	cp main.js manifest.json styles.css $(VAULT_PLUGIN_DIR)/
+	@echo "Vault ready. Open vault/ in Obsidian to test."
 
 build:
 	npm run build
