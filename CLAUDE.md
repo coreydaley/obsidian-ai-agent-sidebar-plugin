@@ -6,11 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```sh
 npm install
-npm run build   # type-check (tsc --noEmit) then esbuild production bundle
-npm run dev     # esbuild watch mode (no type-check)
+npm run build            # type-check (tsc --noEmit) then esbuild production bundle
+npm run dev              # esbuild watch mode (no type-check)
+npm test                 # unit tests (vitest)
+npm run test-integration # integration tests (vitest, real CLI/env, ~15 s timeout)
+npm run lint             # eslint src/
+make test-integration    # equivalent make target
 ```
 
-There are no tests. TypeScript type-checking serves as the primary correctness check — always run `npm run build` before committing.
+TypeScript type-checking is the primary correctness gate — always run `npm run build` before committing. Integration tests in `tests/integration/` exercise real processes and environment; they require the relevant CLI tools or API keys to be present.
+
+To run a single integration test file:
+```sh
+npx vitest run --config vitest.integration.config.ts tests/integration/agent-api-runner.integration.test.ts
+```
 
 **Installing the plugin**: Copy `main.js`, `manifest.json`, and `styles.css` to `<vault>/.obsidian/plugins/obsidian-ai-agent-sidebar/` and enable it in Obsidian settings.
 
@@ -63,6 +72,17 @@ The runners intercept these blocks mid-stream (handling chunk-boundary splits), 
 ### API key resolution
 
 API keys are read from shell environment at run time via `resolveShellEnv()` (`src/shellEnv.ts`), not from Obsidian's data store. Each provider checks a plugin-namespaced var first (`OBSIDIAN_AI_AGENT_SIDEBAR_*`) then standard fallbacks (`ANTHROPIC_API_KEY`, etc.).
+
+### Integration tests (`tests/integration/`)
+
+Each runner component has a corresponding `*.integration.test.ts`. Shared test infrastructure lives in `tests/integration/helpers/`:
+
+- `obsidianStub.ts` — module alias target that satisfies Obsidian API imports at runtime (aliased via `vitest.integration.config.ts`)
+- `mockVault.ts` / `mockObsidian.ts` — in-memory vault and Obsidian stubs
+- `fakeAgent.ts` — minimal fake CLI agent binary used by AgentRunner tests
+- `streamFixtures.ts` — canned streaming payloads for provider adapter tests
+
+`AgentApiRunner` accepts an optional `provider?: ProviderAdapter` constructor argument to allow test doubles; production callers omit it.
 
 ## Sprint documentation
 
