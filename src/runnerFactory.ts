@@ -9,7 +9,7 @@ import type { FileOperationsHandler } from "./FileOperationsHandler";
 import { resolveShellEnv } from "./shellEnv";
 
 /** Valid model name format: alphanumeric, dots, hyphens only */
-export const MODEL_FORMAT = /^[\w.\-]+$/;
+export const MODEL_FORMAT = /^[\w.-]+$/;
 
 export async function createRunner(
   agentId: AgentId,
@@ -61,15 +61,16 @@ export async function createRunner(
     return new AgentApiRunner(agentId, apiKey, model, fileOpsHandler, settings.debugMode);
   }
 
-  return createErrorRunner(`Unknown access mode '${accessMode}'.`);
+  return createErrorRunner("Unknown access mode.");
 }
 
 /** Returns a runner that emits an error event when run() is called */
 function createErrorRunner(message: string): AgentExecutionRunner {
   class ErrorRunner extends EventEmitter implements AgentExecutionRunner {
-    async run(_messages: unknown[], _context: string): Promise<void> {
+    run(_messages: unknown[], _context: string): Promise<void> {
       // Emit error asynchronously so callers can bind event handlers first
       setTimeout(() => this.emit("error", new Error(message)), 0);
+      return Promise.resolve();
     }
     dispose(): void {}
   }

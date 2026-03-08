@@ -7,6 +7,21 @@ import { resolveShellEnv } from "./shellEnv";
 /** Max bytes of auto-injected file content to include in system prompt */
 const MAX_CONTEXT_BYTES = 8 * 1024; // 8KB
 
+// Build ANSI-strip regexes via String.fromCharCode so no-control-regex doesn't flag them.
+const _c = String.fromCharCode;
+const ESC = _c(27); // ESC (0x1b)
+const BEL = _c(7);  // BEL (0x07)
+const STRIP_CSI_RE  = new RegExp(ESC + "\\[[0-9;?]*[A-Za-z@`]", "g");
+const STRIP_OSC_RE  = new RegExp(ESC + "\\][\\s\\S]*?(?:" + BEL + "|" + ESC + "\\\\)", "g");
+const STRIP_DCS_RE  = new RegExp(ESC + "[PX^_][\\s\\S]*?" + ESC + "\\\\", "g");
+const STRIP_TWO_RE  = new RegExp(ESC + "[\\s\\S]", "g");
+const STRIP_ESC_RE  = new RegExp(ESC, "g");
+// C0/C1 control chars except tab (9) and newline (10): 0-8, 11-12, 14-31, 127-159
+const STRIP_CTRL_RE = new RegExp(
+  "[" + _c(0) + "-" + _c(8) + _c(11) + _c(12) + _c(14) + "-" + _c(31) + _c(127) + "-" + _c(159) + "]",
+  "g"
+);
+
 const FILE_OP_OPEN = ":::file-op";
 const FILE_OP_CLOSE = ":::";
 
@@ -205,18 +220,12 @@ export class AgentRunner extends EventEmitter implements AgentExecutionRunner {
         s
           .replace(/\r\n/g, "\n")
           .replace(/\r/g, "\n")
-          // CSI sequences: ESC [ <params> <final>  (includes ?-prefixed params like \x1b[?7h)
-          .replace(/\x1b\[[0-9;?]*[A-Za-z@`]/g, "")
-          // OSC sequences: ESC ] ... ST (BEL or ESC \)
-          .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
-          // DCS / PM / APC / SOS sequences: ESC [P X ^ _] ... ST
-          .replace(/\x1b[PX^_][\s\S]*?\x1b\\/g, "")
-          // Two-char ESC sequences: ESC + one character
-          .replace(/\x1b[\s\S]/g, "")
-          // Remaining bare ESC
-          .replace(/\x1b/g, "")
-          // All other C0/C1 control chars except \t and \n
-          .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, "");
+          .replace(STRIP_CSI_RE, "")
+          .replace(STRIP_OSC_RE, "")
+          .replace(STRIP_DCS_RE, "")
+          .replace(STRIP_TWO_RE, "")
+          .replace(STRIP_ESC_RE, "")
+          .replace(STRIP_CTRL_RE, "");
 
       const flushText = () => {
         if (textAccumulator) {

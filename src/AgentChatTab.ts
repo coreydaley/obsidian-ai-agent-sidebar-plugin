@@ -47,12 +47,12 @@ export class AgentChatTab {
     this.inputEl = inputArea.createEl("textarea", {
       cls: "ai-sidebar-input",
       attr: { placeholder: `Message ${this.detection.name}…`, rows: "3" },
-    }) as HTMLTextAreaElement;
+    });
 
     this.sendBtn = inputArea.createEl("button", {
       text: "Send",
       cls: "ai-sidebar-send-btn",
-    }) as HTMLButtonElement;
+    });
 
     this.inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -61,7 +61,7 @@ export class AgentChatTab {
       }
     });
 
-    this.sendBtn.addEventListener("click", () => this.handleSend());
+    this.sendBtn.addEventListener("click", () => { this.handleSend(); });
   }
 
   private renderEmptyState(): void {
@@ -255,16 +255,16 @@ export class AgentChatTab {
       const lastUserMsg = [...this.history].reverse().find((m) => m.role === "user");
       if (lastUserMsg) {
         this.history.pop();
-        this.sendMessageContent(lastUserMsg.content);
+        void this.sendMessageContent(lastUserMsg.content);
       }
     });
   }
 
-  private async handleSend(): Promise<void> {
+  private handleSend(): void {
     const text = this.inputEl.value.trim();
     if (!text || this.isStreaming) return;
     this.inputEl.value = "";
-    this.sendMessageContent(text);
+    void this.sendMessageContent(text);
   }
 
   private async sendMessageContent(text: string): Promise<void> {

@@ -1,5 +1,5 @@
 import { App, Notice, TFile, TFolder, normalizePath } from "obsidian";
-import { resolve, isAbsolute } from "path";
+import { resolve } from "path";
 import type { FileOp, FileOpResult } from "./types";
 
 export class FileOperationsHandler {
@@ -24,9 +24,9 @@ export class FileOperationsHandler {
         case "rename":
           return await this.rename(op.oldPath ?? "", op.newPath ?? "");
         case "list":
-          return await this.list(op.path ?? "");
+          return this.list(op.path ?? "");
         default:
-          return { ok: false, error: `Unknown operation: ${(op as FileOp).op}` };
+          return { ok: false, error: "Unknown operation" };
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -104,7 +104,7 @@ export class FileOperationsHandler {
       return { ok: false, error: `Delete cancelled by user` };
     }
 
-    await this.app.vault.delete(file);
+    await this.app.fileManager.trashFile(file);
     return { ok: true, result: { path: safePath } };
   }
 
@@ -121,7 +121,7 @@ export class FileOperationsHandler {
     return { ok: true, result: { oldPath: safeOld, newPath: safeNew } };
   }
 
-  private async list(path: string): Promise<FileOpResult> {
+  private list(path: string): FileOpResult {
     const safePath = path ? this.validatePath(path) : "";
     const target = safePath
       ? this.app.vault.getAbstractFileByPath(safePath)
@@ -150,7 +150,7 @@ export class FileOperationsHandler {
   private confirmDelete(path: string): Promise<boolean> {
     return new Promise((resolve) => {
       const notice = new Notice("", 0);
-      const fragment = notice.noticeEl;
+      const fragment = notice.messageEl;
 
       fragment.empty();
       fragment.createEl("p", { text: `Delete "${path}"?` });

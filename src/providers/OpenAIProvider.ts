@@ -19,7 +19,7 @@ export class OpenAIProvider implements ProviderAdapter {
     const openAIMessages: OpenAI.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
       ...messages.map((m) => ({
-        role: (m.role === "assistant" ? "assistant" : "user") as "user" | "assistant",
+        role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
         content: m.content,
       })),
     ];

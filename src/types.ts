@@ -76,12 +76,9 @@ export interface AgentExecutionRunner {
   run(messages: ChatMessage[], context: string): Promise<void>;
   dispose(): void;
   // EventEmitter-compatible methods (both AgentRunner and AgentApiRunner extend EventEmitter)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  on(event: string, listener: (...args: any[]) => void): this;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  off(event: string, listener: (...args: any[]) => void): this;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  emit(event: string, ...args: any[]): boolean;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  off(event: string, listener: (...args: unknown[]) => void): this;
+  emit(event: string, ...args: unknown[]): boolean;
   removeAllListeners(event?: string): this;
 }
 

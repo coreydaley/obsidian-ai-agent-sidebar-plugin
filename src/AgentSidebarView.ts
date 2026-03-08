@@ -1,11 +1,10 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import { appendAgentIcon } from "./icons";
 import { AgentChatTab } from "./AgentChatTab";
-import { AGENT_ADAPTERS } from "./AgentRunner";
 import { FileOperationsHandler } from "./FileOperationsHandler";
 import { createRunner } from "./runnerFactory";
 import { PROVIDERS } from "./providers";
-import type { AgentDetectionResult, AgentId } from "./types";
+import type { AgentDetectionResult } from "./types";
 import type AgentSidebarPlugin from "./main";
 
 export const AGENT_SIDEBAR_VIEW_TYPE = "agent-sidebar-view";
@@ -29,7 +28,7 @@ export class AgentSidebarView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "AI Agent Sidebar";
+    return "AI agent sidebar";
   }
 
   getIcon(): string {
@@ -47,8 +46,9 @@ export class AgentSidebarView extends ItemView {
     await this.buildTabs();
   }
 
-  async onClose(): Promise<void> {
+  onClose(): Promise<void> {
     this.destroyAllTabs();
+    return Promise.resolve();
   }
 
   private async buildTabs(): Promise<void> {
@@ -99,7 +99,7 @@ export class AgentSidebarView extends ItemView {
 
     const detectionResults = this.plugin.agentDetector.getCache() ?? [];
     const runner = await createRunner(
-      detection.id as AgentId,
+      detection.id,
       this.plugin.settings,
       detectionResults,
       this.fileOpsHandler
@@ -130,7 +130,7 @@ export class AgentSidebarView extends ItemView {
     const emptyEl = this.chatContainer.createDiv({ cls: "ai-sidebar-no-agents" });
     emptyEl.createEl("p", { text: "No agents enabled." });
     emptyEl.createEl("p", {
-      text: "Open Settings → AI Agent Sidebar to install and enable agents.",
+      text: "Open settings → AI agent sidebar to install and enable agents.",
       cls: "ai-sidebar-empty-hint",
     });
   }

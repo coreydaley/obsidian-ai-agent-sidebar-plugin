@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
+import { requestUrl } from "obsidian";
 import type { ChatMessage, ProviderAdapter } from "../types";
 
 export class GeminiProvider implements ProviderAdapter {
@@ -55,13 +56,11 @@ export class GeminiProvider implements ProviderAdapter {
   }
 
   async listModels(): Promise<string[]> {
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${this.apiKey}`
-    );
-    if (!resp.ok) return [];
-    const data = await resp.json() as {
-      models: { name: string; supportedGenerationMethods?: string[] }[];
-    };
+    const r = await requestUrl({
+      url: `https://generativelanguage.googleapis.com/v1beta/models?key=${this.apiKey}`,
+    });
+    if (r.status !== 200) return [];
+    const data = r.json as { models: { name: string; supportedGenerationMethods?: string[] }[] };
     return data.models
       .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
       .map((m) => m.name.replace("models/", ""));

@@ -22,16 +22,16 @@ export default class AgentSidebarPlugin extends Plugin {
     );
 
     // Ribbon icon
-    this.addRibbonIcon("bot", "Open AI Agent Sidebar", () => {
-      this.activateSidebar();
+    this.addRibbonIcon("bot", "Open AI agent sidebar", () => {
+      void this.activateSidebar();
     });
 
     // Command palette entry
     this.addCommand({
-      id: "open-ai-agent-sidebar",
-      name: "Open AI Agent Sidebar",
+      id: "open",
+      name: "Open sidebar",
       callback: () => {
-        this.activateSidebar();
+        void this.activateSidebar();
       },
     });
 
@@ -45,14 +45,14 @@ export default class AgentSidebarPlugin extends Plugin {
     return leaf?.view instanceof AgentSidebarView ? leaf.view : null;
   }
 
-  async onunload(): Promise<void> {
+  onunload(): void {
     // AgentChatTab.destroy() disposes runners (kills child processes)
     // AgentSidebarView.onClose() calls destroyAllTabs()
     // Nothing extra needed here since view lifecycle handles it
   }
 
   async loadSettings(): Promise<void> {
-    const saved = await this.loadData();
+    const saved = await this.loadData() as Partial<PluginSettings> | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
 
     // Ensure all agent configs exist and have required fields (migration from SPRINT-001)
@@ -94,6 +94,6 @@ export default class AgentSidebarPlugin extends Plugin {
       await leaf.setViewState({ type: AGENT_SIDEBAR_VIEW_TYPE, active: true });
     }
 
-    workspace.revealLeaf(leaf);
+    await workspace.revealLeaf(leaf);
   }
 }
