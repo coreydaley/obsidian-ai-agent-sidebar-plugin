@@ -11,7 +11,7 @@ const FILE_OP_CLOSE = ":::";
 const INACTIVITY_TIMEOUT_MS = 30_000;
 
 /** Sanitise any string that might contain the API key value */
-function sanitiseError(message: string, apiKey: string): string {
+export function sanitiseError(message: string, apiKey: string): string {
   return message.replace(new RegExp(apiKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "[REDACTED]");
 }
 

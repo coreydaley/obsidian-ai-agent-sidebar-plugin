@@ -9,7 +9,7 @@ import type { FileOperationsHandler } from "./FileOperationsHandler";
 import { resolveShellEnv } from "./shellEnv";
 
 /** Valid model name format: alphanumeric, dots, hyphens only */
-const MODEL_FORMAT = /^[\w.\-]+$/;
+export const MODEL_FORMAT = /^[\w.\-]+$/;
 
 export async function createRunner(
   agentId: AgentId,
