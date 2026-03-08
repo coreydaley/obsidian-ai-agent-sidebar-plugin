@@ -1,9 +1,9 @@
 {
-  "id": "obsidian-ai-agent-sidebar",
+  "id": "ai-agent-sidebar",
   "name": "AI Agent Sidebar",
   "version": "0.2.2",
   "minAppVersion": "1.0.0",
-  "description": "Chat with AI agents (Claude Code, Codex, Gemini, Copilot) about your vault files and have them perform CRUD operations.",
+  "description": "Chat with AI agents (Claude Code, Codex, Gemini, Copilot) about your vault, with support for both CLI and API integrations.",
   "author": "Corey Daley",
   "authorUrl": "https://github.com/coreydaley",
   "isDesktopOnly": true
