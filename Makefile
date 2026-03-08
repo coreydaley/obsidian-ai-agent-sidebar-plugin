@@ -2,7 +2,7 @@ PLUGIN_ID := obsidian-ai-agent-sidebar
 VAULT_DIR  := vault
 VAULT_PLUGIN_DIR := $(VAULT_DIR)/.obsidian/plugins/$(PLUGIN_ID)
 
-.PHONY: dev build install clean
+.PHONY: dev build install clean test
 
 dev: clean build
 	@echo "Creating sample vault..."
@@ -17,6 +17,9 @@ dev: clean build
 
 build:
 	npm run build
+
+test:
+	npm test
 
 clean:
 	rm -f main.js

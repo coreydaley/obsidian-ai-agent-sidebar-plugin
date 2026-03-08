@@ -13,5 +13,6 @@
     "verbatimModuleSyntax": true,
     "lib": ["ES2018", "DOM"]
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["src/__tests__"]
 }

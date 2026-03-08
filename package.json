@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
-    "version": "node version-bump.mjs && git add manifest.json versions.json"
+    "version": "node version-bump.mjs && git add manifest.json versions.json",
+    "test": "vitest run"
   },
   "keywords": [
     "obsidian",
@@ -25,7 +26,8 @@
     "esbuild": "^0.27.3",
     "obsidian": "latest",
     "tslib": "^2.4.0",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.37.0",
