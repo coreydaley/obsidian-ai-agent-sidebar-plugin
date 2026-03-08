@@ -5,7 +5,7 @@ HOT_RELOAD_DIR   := $(VAULT_DIR)/.obsidian/plugins/hot-reload
 HOT_RELOAD_VER   := 0.3.0
 HOT_RELOAD_BASE  := https://github.com/pjeby/hot-reload/releases/download/$(HOT_RELOAD_VER)
 
-.PHONY: dev vault-setup build install clean test lint
+.PHONY: dev vault-setup build install clean test test-integration lint
 
 dev: vault-setup
 	@echo "Starting watcher — changes to src/ will sync to $(VAULT_PLUGIN_DIR) automatically."
@@ -30,6 +30,9 @@ build:
 
 test:
 	npm test
+
+test-integration:
+	npm run test-integration
 
 lint:
 	npm run lint
