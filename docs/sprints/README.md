@@ -19,4 +19,5 @@ Sprint documents live in this directory as `SPRINT-NNN.md` where NNN is a zero-p
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| [SPRINT-001](SPRINT-001.md) | Obsidian AI Agent Sidebar Plugin | Planning |
+| [SPRINT-001](SPRINT-001.md) | Obsidian AI Agent Sidebar Plugin | Completed |
+| [SPRINT-002](SPRINT-002.md) | Provider-Centric Settings with CLI/API Access Mode | Completed |
