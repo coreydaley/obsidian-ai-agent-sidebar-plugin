@@ -25,14 +25,22 @@ export class AgentApiRunner extends EventEmitter implements AgentExecutionRunner
   private disposed = false;
   private abortController: AbortController | null = null;
 
-  constructor(agentId: AgentId, apiKey: string, model: string, fileOpsHandler: FileOperationsHandler, debugMode = false) {
+  constructor(
+    agentId: AgentId,
+    apiKey: string,
+    model: string,
+    fileOpsHandler: FileOperationsHandler,
+    debugMode = false,
+    /** For testing only — do not pass from production callers. */
+    provider?: ProviderAdapter
+  ) {
     super();
     this.agentId = agentId;
     this.apiKey = apiKey;
     this.model = model;
     this.fileOpsHandler = fileOpsHandler;
     this.debugMode = debugMode;
-    this.provider = this.createProvider(agentId, apiKey);
+    this.provider = provider ?? this.createProvider(agentId, apiKey);
   }
 
   private debug(text: string): void {

@@ -1,0 +1,179 @@
+/**
+ * Integration tests for createRunner (runnerFactory.ts).
+ *
+ * Tests the factory's branching logic: CLI vs API mode, missing binary,
+ * missing API key, invalid model name, and unknown access mode.
+ *
+ * NOTE: resolveShellEnv() has a module-level cache. pool: "forks" ensures
+ * each test file gets a fresh process, so process.env mutations set here
+ * are visible when shellEnv first resolves.
+ */
+
+import { describe, it, expect, beforeAll } from "vitest";
+import { createRunner } from "../../src/runnerFactory";
+import { AgentRunner } from "../../src/AgentRunner";
+import { AgentApiRunner } from "../../src/AgentApiRunner";
+import type {
+  AgentId,
+  AgentDetectionResult,
+  PluginSettings,
+  AccessMode,
+} from "../../src/types";
+import type { FileOperationsHandler } from "../../src/FileOperationsHandler";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** A real env var + value injected into process.env so resolveShellEnv picks it up */
+const TEST_API_KEY_VAR = "OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_API_KEY";
+const TEST_API_KEY_VALUE = "test-runner-factory-key";
+
+beforeAll(() => {
+  // Must be set before any call to resolveShellEnv() so the module-level
+  // promise resolves with this value present.
+  process.env[TEST_API_KEY_VAR] = TEST_API_KEY_VALUE;
+});
+
+// ---------------------------------------------------------------------------
+// Stubs
+// ---------------------------------------------------------------------------
+
+const mockHandler = {
+  execute: async () => ({ ok: true, result: {} }),
+} as unknown as FileOperationsHandler;
+
+function makeDetection(
+  agentId: AgentId,
+  overrides: Partial<AgentDetectionResult> = {}
+): AgentDetectionResult {
+  return {
+    id: agentId,
+    name: "Test Agent",
+    command: "test-command",
+    path: "",
+    isInstalled: false,
+    hasApiKey: false,
+    apiKeyVar: "",
+    ...overrides,
+  };
+}
+
+function makeSettings(
+  agentId: AgentId,
+  accessMode: AccessMode,
+  selectedModel?: string
+): PluginSettings {
+  return {
+    agents: {
+      claude: {
+        enabled: true,
+        extraArgs: "",
+        yoloMode: false,
+        accessMode,
+        selectedModel,
+      },
+      codex: { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
+      gemini: { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
+      copilot: { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
+    },
+    persistConversations: false,
+    debugMode: false,
+  };
+}
+
+/**
+ * Collect the first error emitted by a runner after calling run().
+ * Resolves with the error message.
+ */
+function collectFirstError(runner: Awaited<ReturnType<typeof createRunner>>): Promise<string> {
+  return new Promise((resolve) => {
+    runner.on("error", (err) => resolve((err as Error).message));
+    runner.run([], "ctx").catch(() => {});
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("CLI mode", () => {
+  it("returns AgentRunner when binary is installed", async () => {
+    const detection = makeDetection("claude", {
+      isInstalled: true,
+      path: process.execPath, // a real executable path
+    });
+    const settings = makeSettings("claude", "cli");
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).toBeInstanceOf(AgentRunner);
+  });
+
+  it("returns error runner when binary is not installed", async () => {
+    const detection = makeDetection("claude", { isInstalled: false });
+    const settings = makeSettings("claude", "cli");
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).not.toBeInstanceOf(AgentRunner);
+    const msg = await collectFirstError(runner);
+    expect(msg).toMatch(/CLI binary not found/i);
+  });
+});
+
+describe("API mode", () => {
+  it("returns AgentApiRunner when API key is present", async () => {
+    const detection = makeDetection("claude", {
+      hasApiKey: true,
+      apiKeyVar: TEST_API_KEY_VAR,
+    });
+    const settings = makeSettings("claude", "api");
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).toBeInstanceOf(AgentApiRunner);
+  });
+
+  it("returns error runner when API key is absent", async () => {
+    const detection = makeDetection("claude", {
+      hasApiKey: false,
+      apiKeyVar: "",
+    });
+    const settings = makeSettings("claude", "api");
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).not.toBeInstanceOf(AgentApiRunner);
+    const msg = await collectFirstError(runner);
+    expect(msg).toMatch(/API key not detected/i);
+  });
+
+  it("falls back to provider default model when selected model is invalid", async () => {
+    const detection = makeDetection("claude", {
+      hasApiKey: true,
+      apiKeyVar: TEST_API_KEY_VAR,
+    });
+    // A model name with "/" is rejected by MODEL_FORMAT — factory should fall back
+    const settings = makeSettings("claude", "api", "invalid/model/name");
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    // Should still return a usable AgentApiRunner (not an error runner)
+    expect(runner).toBeInstanceOf(AgentApiRunner);
+  });
+});
+
+describe("unknown access mode", () => {
+  it("returns error runner for unrecognised access mode", async () => {
+    const detection = makeDetection("claude", { isInstalled: true, path: process.execPath });
+    const settings = makeSettings("claude", "unknown-mode" as AccessMode);
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).not.toBeInstanceOf(AgentRunner);
+    expect(runner).not.toBeInstanceOf(AgentApiRunner);
+    const msg = await collectFirstError(runner);
+    expect(msg).toMatch(/unknown access mode/i);
+  });
+});
