@@ -5,7 +5,7 @@ HOT_RELOAD_DIR   := $(VAULT_DIR)/.obsidian/plugins/hot-reload
 HOT_RELOAD_VER   := 0.3.0
 HOT_RELOAD_BASE  := https://github.com/pjeby/hot-reload/releases/download/$(HOT_RELOAD_VER)
 
-.PHONY: dev vault-setup build install clean test test-integration lint
+.PHONY: dev vault-setup build install clean test test-unit test-integration test-all test-e2e lint help
 
 dev: vault-setup
 	@echo "Starting watcher — changes to src/ will sync to $(VAULT_PLUGIN_DIR) automatically."
@@ -29,10 +29,21 @@ build:
 	npm run build
 
 test:
+	@echo "Available test targets:"
+	@echo "  make test-unit         Run unit tests"
+	@echo "  make test-integration  Run integration tests"
+	@echo "  make test-all          Run unit and integration tests"
+
+test-unit:
 	npm test
 
 test-integration:
 	npm run test-integration
+
+test-all: test-unit test-integration
+
+test-e2e: build
+	npm run test-e2e
 
 lint:
 	npm run lint
@@ -40,3 +51,18 @@ lint:
 clean:
 	rm -f main.js
 	rm -rf $(VAULT_DIR)
+
+help:
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Targets:"
+	@echo "  dev               Build and start watch mode with hot-reload vault"
+	@echo "  build             Type-check and bundle (production)"
+	@echo "  test              Show available test targets"
+	@echo "  test-unit         Run unit tests"
+	@echo "  test-integration  Run integration tests"
+	@echo "  test-all          Run unit and integration tests"
+	@echo "  lint              Lint source files"
+	@echo "  vault-setup       Create sample Obsidian vault with plugin installed"
+	@echo "  clean             Remove build output and vault directory"
+	@echo "  help              Show this help message"
