@@ -21,7 +21,7 @@
   "author": "Corey Daley",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^18.0.0",
+    "@types/node": "^20.19.37",
     "builtin-modules": "^3.3.0",
     "esbuild": "^0.27.3",
     "obsidian": "latest",
