@@ -1,51 +1,23 @@
 import { spawn, ChildProcess } from "child_process";
 import { EventEmitter } from "events";
-import type { AgentAdapterConfig, AgentId, ChatMessage, FileOp, FileOpResult } from "./types";
+import type { AgentAdapterConfig, AgentExecutionRunner, AgentId, ChatMessage, FileOp, FileOpResult } from "./types";
 import type { FileOperationsHandler } from "./FileOperationsHandler";
+import { resolveShellEnv } from "./shellEnv";
 
 /** Max bytes of auto-injected file content to include in system prompt */
 const MAX_CONTEXT_BYTES = 8 * 1024; // 8KB
 
-/**
- * Resolve the full login-shell environment once and cache it.
- * GUI apps on macOS inherit a stripped environment that omits PATH entries
- * (Homebrew, nvm, Volta, etc.) and API key variables set in shell profiles.
- */
-let resolvedEnvPromise: Promise<Record<string, string>> | null = null;
-
-function resolveShellEnv(): Promise<Record<string, string>> {
-  if (resolvedEnvPromise) return resolvedEnvPromise;
-  resolvedEnvPromise = new Promise((resolve) => {
-    const shell = process.env.SHELL ?? "/bin/bash";
-    const proc = spawn(shell, ["-l", "-c", "env"], {
-      shell: false,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    let out = "";
-    proc.stdout?.on("data", (d: Buffer) => (out += d.toString()));
-    proc.on("close", () => {
-      const env: Record<string, string> = { ...process.env } as Record<string, string>;
-      for (const line of out.split("\n")) {
-        const eq = line.indexOf("=");
-        if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1);
-      }
-      resolve(env);
-    });
-    proc.on("error", () => resolve({ ...process.env } as Record<string, string>));
-  });
-  return resolvedEnvPromise;
-}
-
 const FILE_OP_OPEN = ":::file-op";
 const FILE_OP_CLOSE = ":::";
 
-/** Per-agent adapter configurations */
+/** Per-agent CLI adapter configurations (Gemini is API-only; no CLI entry) */
 export const AGENT_ADAPTERS: AgentAdapterConfig[] = [
   {
     id: "claude" as AgentId,
     name: "Claude Code",
     command: "claude",
     processModel: "one-shot",
+    yoloArgs: ["--dangerously-skip-permissions"],
     buildArgs: (extraArgs) => ["--print", ...extraArgs],
   },
   {
@@ -53,15 +25,8 @@ export const AGENT_ADAPTERS: AgentAdapterConfig[] = [
     name: "OpenAI Codex",
     command: "codex",
     processModel: "one-shot",
+    yoloArgs: ["--full-auto"],
     buildArgs: (extraArgs) => ["exec", "--color", "never", "--ephemeral", "--skip-git-repo-check", ...extraArgs],
-  },
-  {
-    id: "gemini" as AgentId,
-    name: "Gemini CLI",
-    command: "gemini",
-    processModel: "one-shot",
-    promptFlag: "-p",
-    buildArgs: (extraArgs) => [...extraArgs],
   },
   {
     id: "copilot" as AgentId,
@@ -69,7 +34,15 @@ export const AGENT_ADAPTERS: AgentAdapterConfig[] = [
     command: "copilot",
     processModel: "one-shot",
     promptFlag: "-p",
+    yoloArgs: ["--allow-all"],
     buildArgs: (extraArgs) => ["--allow-all-tools", ...extraArgs],
+  },
+  {
+    id: "gemini" as AgentId,
+    name: "Google Gemini",
+    command: "",
+    processModel: "one-shot",
+    buildArgs: () => [],
   },
 ];
 
@@ -83,7 +56,7 @@ export interface AgentRunnerEvents {
   error: (err: Error) => void;
 }
 
-export class AgentRunner extends EventEmitter {
+export class AgentRunner extends EventEmitter implements AgentExecutionRunner {
   private adapter: AgentAdapterConfig;
   private binaryPath: string;
   private extraArgs: string[];
@@ -130,6 +103,14 @@ export class AgentRunner extends EventEmitter {
       `Only emit file operations when the user explicitly asks you to read, create, edit, rename, or delete files.\n` +
       `If you cannot perform a file operation safely, explain why in plain text instead.\n`
     );
+  }
+
+  /** Implements AgentExecutionRunner. context is JSON: { vaultPath, activeFileContent } */
+  async run(messages: ChatMessage[], context: string): Promise<void> {
+    const { vaultPath, activeFileContent } = JSON.parse(context) as { vaultPath: string; activeFileContent: string | null };
+    const lastMsg = messages[messages.length - 1];
+    const history = messages.slice(0, -1);
+    await this.sendMessage(lastMsg.content, history, vaultPath, activeFileContent);
   }
 
   async sendMessage(

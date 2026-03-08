@@ -1,14 +1,16 @@
-import type { AgentDetectionResult, ChatMessage, FileOp, FileOpRecord, FileOpResult } from "./types";
-import type { AgentRunner } from "./AgentRunner";
+import type { AgentDetectionResult, AgentExecutionRunner, ChatMessage, FileOp, FileOpRecord, FileOpResult } from "./types";
 import type { App } from "obsidian";
 import type AgentSidebarPlugin from "./main";
+
+/** Max bytes of auto-injected file content to include in system prompt */
+const MAX_CONTEXT_BYTES = 8 * 1024;
 
 export class AgentChatTab {
   private containerEl: HTMLElement;
   private messagesEl: HTMLElement;
   private inputEl: HTMLTextAreaElement;
   private sendBtn: HTMLButtonElement;
-  private runner: AgentRunner;
+  private runner: AgentExecutionRunner;
   private detection: AgentDetectionResult;
   private history: ChatMessage[] = [];
   private isStreaming = false;
@@ -19,7 +21,7 @@ export class AgentChatTab {
   private debugLogEl: HTMLElement | null = null;
   private plugin: AgentSidebarPlugin;
 
-  constructor(containerEl: HTMLElement, runner: AgentRunner, detection: AgentDetectionResult, app: App, plugin: AgentSidebarPlugin) {
+  constructor(containerEl: HTMLElement, runner: AgentExecutionRunner, detection: AgentDetectionResult, app: App, plugin: AgentSidebarPlugin) {
     this.containerEl = containerEl;
     this.runner = runner;
     this.detection = detection;
@@ -33,7 +35,6 @@ export class AgentChatTab {
     this.containerEl.empty();
     this.containerEl.addClass("ai-sidebar-chat");
 
-    // Messages area
     this.messagesEl = this.containerEl.createDiv({ cls: "ai-sidebar-messages" });
 
     if (this.history.length === 0) {
@@ -42,7 +43,6 @@ export class AgentChatTab {
       this.history.forEach((msg) => this.renderMessage(msg));
     }
 
-    // Input area
     const inputArea = this.containerEl.createDiv({ cls: "ai-sidebar-input-area" });
     this.inputEl = inputArea.createEl("textarea", {
       cls: "ai-sidebar-input",
@@ -93,7 +93,6 @@ export class AgentChatTab {
     const contentEl = msgEl.createDiv({ cls: "ai-sidebar-message-content" });
     contentEl.textContent = msg.content;
 
-    // Render file op records if any
     if (msg.fileOps && msg.fileOps.length > 0) {
       msg.fileOps.forEach((record) => this.renderFileOpCard(msgEl, record));
     }
@@ -134,49 +133,46 @@ export class AgentChatTab {
   }
 
   private bindRunnerEvents(): void {
-    this.runner.on("raw", (stream: "stdout" | "stderr", text: string) => {
+    this.runner.on("raw", (stream: unknown, text: unknown) => {
       if (!this.plugin.settings.debugMode || !this.debugLogEl) return;
-      const line = this.debugLogEl.createEl("span", { cls: `ai-sidebar-debug-line ai-sidebar-debug-line--${stream}` });
-      line.textContent = text;
+      const line = this.debugLogEl.createEl("span", { cls: `ai-sidebar-debug-line ai-sidebar-debug-line--${stream as string}` });
+      line.textContent = text as string;
       this.scrollToBottom();
     });
 
-    this.runner.on("stderr", (text: string) => {
+    this.runner.on("stderr", (text: unknown) => {
       if (this.currentAssistantMsgEl && this.statusEl) {
-        this.statusEl.textContent = text;
+        this.statusEl.textContent = text as string;
         this.scrollToBottom();
       }
     });
 
-    this.runner.on("token", (text: string) => {
-      // Hide thinking status once tokens arrive
+    this.runner.on("token", (text: unknown) => {
       if (this.statusEl) {
         this.statusEl.remove();
         this.statusEl = null;
       }
-      this.currentAssistantContent += text;
+      this.currentAssistantContent += text as string;
       const contentEl = this.currentAssistantMsgEl?.querySelector(".ai-sidebar-message-content");
       if (contentEl) contentEl.textContent = this.currentAssistantContent;
       this.scrollToBottom();
     });
 
-    this.runner.on("fileOpStart", (op: FileOp) => {
+    this.runner.on("fileOpStart", (op: unknown) => {
       if (this.statusEl) {
         this.statusEl.remove();
         this.statusEl = null;
       }
+      const fileOp = op as FileOp;
       const pendingCard = this.currentAssistantMsgEl!.createDiv({ cls: "ai-sidebar-fileop-card ai-sidebar-fileop-card--pending" });
-      pendingCard.textContent = `${op.op.toUpperCase()} ${op.path ?? op.oldPath ?? ""}…`;
+      pendingCard.textContent = `${fileOp.op.toUpperCase()} ${fileOp.path ?? fileOp.oldPath ?? ""}…`;
     });
 
-    this.runner.on("fileOpResult", (op: FileOp, result: FileOpResult) => {
+    this.runner.on("fileOpResult", (op: unknown, result: unknown) => {
       if (!this.currentAssistantMsgEl) return;
-
-      // Remove pending card
       const pending = this.currentAssistantMsgEl.querySelector(".ai-sidebar-fileop-card--pending");
       if (pending) pending.remove();
-
-      this.renderFileOpCard(this.currentAssistantMsgEl, { op, result });
+      this.renderFileOpCard(this.currentAssistantMsgEl, { op: op as FileOp, result: result as FileOpResult });
       this.scrollToBottom();
     });
 
@@ -185,15 +181,14 @@ export class AgentChatTab {
       this.setStreaming(false);
     });
 
-    this.runner.on("error", (err: Error) => {
+    this.runner.on("error", (err: unknown) => {
       this.finalizeStreamingMessage();
-      this.renderError(err.message);
+      this.renderError((err as Error).message);
       this.setStreaming(false);
     });
   }
 
   private createStreamingMessage(): HTMLElement {
-    // Remove empty state if present
     const emptyEl = this.messagesEl.querySelector(".ai-sidebar-empty");
     if (emptyEl) emptyEl.remove();
 
@@ -233,7 +228,6 @@ export class AgentChatTab {
     }
 
     this.debugLogEl = null;
-
     this.currentAssistantMsgEl.removeClass("ai-sidebar-message--streaming");
 
     const assistantMsg: ChatMessage = {
@@ -260,8 +254,7 @@ export class AgentChatTab {
       errorEl.remove();
       const lastUserMsg = [...this.history].reverse().find((m) => m.role === "user");
       if (lastUserMsg) {
-        // Re-send the last user message
-        this.history.pop(); // remove it from history so it re-adds
+        this.history.pop();
         this.sendMessageContent(lastUserMsg.content);
       }
     });
@@ -270,7 +263,6 @@ export class AgentChatTab {
   private async handleSend(): Promise<void> {
     const text = this.inputEl.value.trim();
     if (!text || this.isStreaming) return;
-
     this.inputEl.value = "";
     this.sendMessageContent(text);
   }
@@ -287,7 +279,6 @@ export class AgentChatTab {
 
     this.history.push(userMsg);
 
-    // Remove empty state
     const emptyEl = this.messagesEl.querySelector(".ai-sidebar-empty");
     if (emptyEl) emptyEl.remove();
 
@@ -296,20 +287,29 @@ export class AgentChatTab {
     this.currentAssistantMsgEl = this.createStreamingMessage();
     this.scrollToBottom();
 
-    // Get active file content for context injection
     const activeFile = this.app.workspace.getActiveFile();
     let activeFileContent: string | null = null;
     if (activeFile) {
       try {
         activeFileContent = await this.app.vault.read(activeFile);
+        if (activeFileContent.length > MAX_CONTEXT_BYTES) {
+          activeFileContent = activeFileContent.slice(0, MAX_CONTEXT_BYTES);
+        }
       } catch {
         // Ignore read errors
       }
     }
 
     const vaultPath = (this.app.vault.adapter as { basePath?: string }).basePath ?? "";
+    const context = JSON.stringify({ vaultPath, activeFileContent });
 
-    await this.runner.sendMessage(text, this.history.slice(0, -1), vaultPath, activeFileContent);
+    try {
+      await this.runner.run(this.history.slice(), context);
+    } catch (err) {
+      this.finalizeStreamingMessage();
+      this.renderError(err instanceof Error ? err.message : String(err));
+      this.setStreaming(false);
+    }
   }
 
   private setStreaming(value: boolean): void {
@@ -325,6 +325,11 @@ export class AgentChatTab {
 
   getHistory(): ChatMessage[] {
     return this.history;
+  }
+
+  clearHistory(): void {
+    this.history = [];
+    this.render();
   }
 
   show(): void {

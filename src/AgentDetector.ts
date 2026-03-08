@@ -1,6 +1,8 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import type { AgentAdapterConfig, AgentDetectionResult } from "./types";
+import { resolveShellEnv } from "./shellEnv";
+import { PROVIDERS } from "./providers";
 
 const execAsync = promisify(exec);
 
@@ -17,7 +19,6 @@ export class AgentDetector {
 
   async rescan(adapters?: AgentAdapterConfig[]): Promise<AgentDetectionResult[]> {
     if (!adapters) {
-      // Return cached results refreshed — caller must pass adapters on first call
       if (!this.cache) return [];
       adapters = this.cache.map((r) => ({
         id: r.id,
@@ -28,13 +29,56 @@ export class AgentDetector {
       }));
     }
 
+    const shellEnv = await resolveShellEnv();
     const resolvedAdapters = adapters;
-    const results = await Promise.all(resolvedAdapters.map((adapter) => this.detectOne(adapter)));
+    const results = await Promise.all(resolvedAdapters.map((adapter) => this.detectOne(adapter, shellEnv)));
     this.cache = results;
     return results;
   }
 
-  private async detectOne(adapter: AgentAdapterConfig): Promise<AgentDetectionResult> {
+  async detectStream(
+    adapters: AgentAdapterConfig[],
+    onResult: (result: AgentDetectionResult) => void,
+  ): Promise<AgentDetectionResult[]> {
+    const shellEnv = await resolveShellEnv();
+    const results = await Promise.all(
+      adapters.map(async (adapter) => {
+        const result = await this.detectOne(adapter, shellEnv);
+        onResult(result);
+        return result;
+      })
+    );
+    this.cache = results;
+    return results;
+  }
+
+  private async detectOne(adapter: AgentAdapterConfig, shellEnv: Record<string, string>): Promise<AgentDetectionResult> {
+    const provider = PROVIDERS.find((p) => p.agentId === adapter.id);
+
+    // Resolve API key: prefer OBSIDIAN_* namespace, fall through to standard names
+    const primaryVar = provider?.apiKeyEnvVar ?? adapter.apiKeyVar ?? "";
+    const candidateVars = [
+      ...(primaryVar ? [primaryVar] : []),
+      ...(provider?.fallbackApiKeyEnvVars ?? []),
+    ];
+    const foundVar = candidateVars.find((v) => Boolean(shellEnv[v]));
+    const hasApiKey = Boolean(foundVar);
+    // When detected, store found var so the key can be retrieved; when not, store primary so UI can show what to set
+    const apiKeyVar = foundVar ?? primaryVar;
+
+    // Google (Gemini) has no CLI — skip binary detection
+    if (!provider?.cliSupported) {
+      return {
+        id: adapter.id,
+        name: adapter.name,
+        command: adapter.command ?? "",
+        path: "",
+        isInstalled: false,
+        hasApiKey,
+        apiKeyVar,
+      };
+    }
+
     // On macOS/Linux, Obsidian launches as a GUI app and does not inherit the
     // user's shell PATH. Run which inside a login shell so that .zshrc /
     // .bash_profile / etc. are sourced and tools installed via Homebrew, npm,
@@ -54,7 +98,7 @@ export class AgentDetector {
       // Security: verify the resolved path is absolute
       if (!resolvedPath.startsWith("/") && !(/^[A-Za-z]:\\/.test(resolvedPath))) {
         console.warn(`[AgentDetector] ${adapter.command}: resolved to non-absolute path "${resolvedPath}", rejecting`);
-        return this.unavailable(adapter);
+        return this.unavailable(adapter, hasApiKey, apiKeyVar);
       }
 
       return {
@@ -63,19 +107,23 @@ export class AgentDetector {
         command: adapter.command,
         path: resolvedPath,
         isInstalled: true,
+        hasApiKey,
+        apiKeyVar,
       };
     } catch {
-      return this.unavailable(adapter);
+      return this.unavailable(adapter, hasApiKey, apiKeyVar);
     }
   }
 
-  private unavailable(adapter: AgentAdapterConfig): AgentDetectionResult {
+  private unavailable(adapter: AgentAdapterConfig, hasApiKey = false, apiKeyVar = ""): AgentDetectionResult {
     return {
       id: adapter.id,
       name: adapter.name,
       command: adapter.command,
       path: "",
       isInstalled: false,
+      hasApiKey,
+      apiKeyVar,
     };
   }
 

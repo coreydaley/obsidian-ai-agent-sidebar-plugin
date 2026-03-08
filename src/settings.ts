@@ -1,24 +1,52 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, requestUrl } from "obsidian";
 import type AgentSidebarPlugin from "./main";
-import type { AgentDetectionResult, AgentId, PluginSettings } from "./types";
+import type { AgentDetectionResult, AgentId, AccessMode, PluginSettings } from "./types";
 import { AGENT_ADAPTERS } from "./AgentRunner";
 import { SHELL_INJECTION_PATTERN } from "./AgentDetector";
+import { PROVIDERS } from "./providers";
+import type { ProviderConfig } from "./providers";
+import { AGENT_ICONS } from "./icons";
 
 export const DEFAULT_SETTINGS: PluginSettings = {
   agents: {
-    claude: { enabled: true, extraArgs: "" },
-    codex: { enabled: true, extraArgs: "" },
-    gemini: { enabled: true, extraArgs: "" },
-    copilot: { enabled: true, extraArgs: "" },
+    claude:  { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
+    codex:   { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
+    gemini:  { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
+    copilot: { enabled: true,  extraArgs: "", yoloMode: false, accessMode: "cli" },
   },
   persistConversations: false,
   debugMode: false,
   workingDirectory: undefined,
 };
 
+/** Per-session cache of fetched model lists, keyed by agentId */
+const modelListCache: Partial<Record<AgentId, string[]>> = {};
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function createToggle(
+  parent: HTMLElement,
+  checked: boolean,
+  disabled: boolean,
+  onChange: (v: boolean) => void
+): HTMLInputElement {
+  const label = parent.createEl("label", { cls: "ais-toggle" });
+  const input = label.createEl("input") as HTMLInputElement;
+  input.type = "checkbox";
+  input.checked = checked;
+  input.disabled = disabled;
+  label.createDiv({ cls: "ais-toggle-track" });
+  label.createDiv({ cls: "ais-toggle-thumb" });
+  input.addEventListener("change", () => onChange(input.checked));
+  return input;
+}
+
+// ─── settings tab ─────────────────────────────────────────────────────────────
+
 export class AgentSidebarSettingTab extends PluginSettingTab {
   plugin: AgentSidebarPlugin;
   private detectionResults: AgentDetectionResult[] = [];
+  private cardUpdaters = new Map<string, (result: AgentDetectionResult | null) => void>();
 
   constructor(app: App, plugin: AgentSidebarPlugin) {
     super(app, plugin);
@@ -28,122 +56,412 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
   async display(): Promise<void> {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.addClass("ais-settings");
+    containerEl.createEl("h2", { text: "AI Agent Sidebar", cls: "ais-page-title" });
 
-    containerEl.createEl("h2", { text: "AI Agent Sidebar" });
+    this.cardUpdaters.clear();
+    const cached = this.plugin.agentDetector.getCache();
+    this.detectionResults = cached ?? [];
 
-    // Run detection to get current state
-    this.detectionResults = await this.plugin.agentDetector.rescan(AGENT_ADAPTERS);
+    this.renderProviders(containerEl);
+    this.renderGlobal(containerEl);
 
-    this.renderAgentsSection(containerEl);
-    this.renderGlobalSection(containerEl);
-  }
-
-  private renderAgentsSection(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: "Agents" });
-
-    const rescanSetting = new Setting(containerEl)
-      .setName("Installed agents")
-      .setDesc("Agents detected on your system. Enable or disable them in the sidebar.")
-      .addButton((btn) => {
-        btn.setButtonText("Re-scan").onClick(async () => {
-          btn.setDisabled(true);
-          btn.setButtonText("Scanning…");
-          this.detectionResults = await this.plugin.agentDetector.rescan(AGENT_ADAPTERS);
-          await this.display();
-        });
-      });
-
-    rescanSetting.settingEl.style.flexWrap = "wrap";
-
-    for (const adapter of AGENT_ADAPTERS) {
-      const detection = this.detectionResults.find((r) => r.id === adapter.id);
-      const isInstalled = detection?.isInstalled ?? false;
-      const agentConfig = this.plugin.settings.agents[adapter.id];
-
-      const agentEl = containerEl.createDiv({ cls: "ai-sidebar-agent-setting" });
-
-      // Agent header row
-      const headerEl = agentEl.createDiv({ cls: "ai-sidebar-agent-header" });
-      const titleEl = headerEl.createDiv({ cls: "ai-sidebar-agent-title" });
-      titleEl.createSpan({ text: adapter.name, cls: "ai-sidebar-agent-name" });
-
-      const badge = titleEl.createSpan({
-        text: isInstalled ? "Installed" : "Not installed",
-        cls: `ai-sidebar-badge ${isInstalled ? "ai-sidebar-badge--installed" : "ai-sidebar-badge--missing"}`,
-      });
-      badge.title = isInstalled ? `Found at: ${detection?.path}` : `Command '${adapter.command}' not found in PATH`;
-
-      // Command / path info
-      const pathEl = agentEl.createDiv({ cls: "ai-sidebar-agent-path" });
-      if (isInstalled && detection) {
-        pathEl.createSpan({ text: "Command: ", cls: "ai-sidebar-agent-path-label" });
-        pathEl.createSpan({ text: detection.path, cls: "ai-sidebar-agent-path-value" });
-      } else {
-        pathEl.createSpan({ text: `Command '${adapter.command}' not found in PATH`, cls: "ai-sidebar-agent-path-missing" });
-      }
-
-      // Enable toggle
-      new Setting(agentEl)
-        .setName("Enable")
-        .setDesc(isInstalled ? "Show this agent in the sidebar" : "Agent not installed — cannot enable")
-        .addToggle((toggle) => {
-          toggle
-            .setValue(agentConfig.enabled && isInstalled)
-            .setDisabled(!isInstalled)
-            .onChange(async (value) => {
-              this.plugin.settings.agents[adapter.id].enabled = value;
-              await this.plugin.saveSettings();
-              this.plugin.agentSidebarView?.refreshTabs();
-            });
-        });
-
-      // Extra CLI args
-      new Setting(agentEl)
-        .setName("Extra CLI arguments")
-        .setDesc(
-          "Additional flags passed to the agent on startup. " +
-            "Model selection is handled by the CLI agent's own configuration. " +
-            "To override, pass e.g. --model claude-opus-4-5 here."
-        )
-        .addText((text) => {
-          text
-            .setPlaceholder("e.g. --model claude-opus-4-5 --max-tokens 4096")
-            .setValue(agentConfig.extraArgs)
-            .onChange(async (value) => {
-              if (SHELL_INJECTION_PATTERN.test(value)) {
-                new Notice(
-                  `Extra args contain unsafe characters. Remove ; | & \` $( > and try again.`
-                );
-                return;
-              }
-              this.plugin.settings.agents[adapter.id as AgentId].extraArgs = value;
-              await this.plugin.saveSettings();
-            });
-        });
+    if (!cached) {
+      this.streamScan();
     }
   }
 
-  private renderGlobalSection(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: "Global Options" });
+  private streamScan(rescanBtn?: HTMLButtonElement): void {
+    const TIMEOUT_MS = 10_000;
 
-    new Setting(containerEl)
-      .setName("Persist conversations")
-      .setDesc("Save and restore chat history across Obsidian restarts. (Coming in v2 — toggle saved but not yet active)")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.persistConversations).onChange(async (value) => {
-          this.plugin.settings.persistConversations = value;
-          await this.plugin.saveSettings();
-        });
-      });
+    // Safety net: any card still in checking state after the timeout gets resolved to "not found"
+    const timeoutId = setTimeout(() => {
+      for (const provider of PROVIDERS) {
+        const agentId = provider.agentId as AgentId;
+        if (!this.detectionResults.find((r) => r.id === agentId)) {
+          const fallback = { id: agentId, name: provider.label, command: "", path: "", isInstalled: false, hasApiKey: false, apiKeyVar: "" };
+          this.detectionResults.push(fallback);
+          this.cardUpdaters.get(agentId)?.(fallback);
+        }
+      }
+      if (rescanBtn) { rescanBtn.disabled = false; rescanBtn.textContent = "Re-scan"; }
+    }, TIMEOUT_MS);
 
-    new Setting(containerEl)
-      .setName("Debug mode")
-      .setDesc("Show all raw stdout and stderr output from the CLI agent in the chat. Useful for diagnosing hangs or unexpected behaviour.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.debugMode).onChange(async (value) => {
-          this.plugin.settings.debugMode = value;
-          await this.plugin.saveSettings();
-        });
+    this.plugin.agentDetector.detectStream(AGENT_ADAPTERS, (result) => {
+      this.detectionResults = [
+        ...this.detectionResults.filter((r) => r.id !== result.id),
+        result,
+      ];
+      this.cardUpdaters.get(result.id)?.(result);
+    }).then(() => {
+      clearTimeout(timeoutId);
+      if (rescanBtn) { rescanBtn.disabled = false; rescanBtn.textContent = "Re-scan"; }
+    });
+  }
+
+  // ── Providers section ────────────────────────────────────────────────────────
+
+  private renderProviders(root: HTMLElement): void {
+    const sectionHeader = root.createDiv({ cls: "ais-section-header" });
+    sectionHeader.createEl("span", { text: "Providers", cls: "ais-section-title" });
+
+    const rescanBtn = sectionHeader.createEl("button", { text: "Re-scan", cls: "ais-rescan-btn" }) as HTMLButtonElement;
+    rescanBtn.addEventListener("click", () => {
+      rescanBtn.disabled = true;
+      rescanBtn.textContent = "Scanning…";
+      for (const key of Object.keys(modelListCache) as AgentId[]) delete modelListCache[key];
+      this.plugin.agentDetector.clearCache();
+      this.detectionResults = [];
+      for (const updater of this.cardUpdaters.values()) updater(null);
+      this.streamScan(rescanBtn);
+    });
+
+    const list = root.createDiv({ cls: "ais-provider-list" });
+    for (const provider of PROVIDERS) {
+      this.renderProviderCard(list, provider);
+    }
+  }
+
+  private renderProviderCard(parent: HTMLElement, provider: ProviderConfig): void {
+    const agentId = provider.agentId as AgentId;
+    const card = parent.createDiv({ cls: "ais-card" });
+
+    const renderContent = (detection: AgentDetectionResult | null) => {
+      card.empty();
+      card.className = "ais-card";
+
+      const isChecking = detection === null;
+      const isInstalled = detection?.isInstalled ?? false;
+      const hasApiKey   = detection?.hasApiKey  ?? false;
+      const canEnable   = isInstalled || hasApiKey;
+      const config      = this.plugin.settings.agents[agentId];
+
+      if (!isChecking) {
+        let mode = config.accessMode;
+        if (mode === "cli" && !provider.cliSupported)       mode = "api";
+        if (mode === "api" && !provider.apiSupported)       mode = "cli";
+        if (mode === "cli" && !isInstalled && hasApiKey)    mode = "api";
+        if (mode === "api" && !hasApiKey    && isInstalled) mode = "cli";
+        if (mode !== config.accessMode) { config.accessMode = mode; this.plugin.saveSettings(); }
+      }
+
+      const isEnabled = config.enabled && canEnable;
+      if (isEnabled)                    card.addClass("ais-card--enabled");
+      if (!isChecking && !canEnable)    card.addClass("ais-card--no-access");
+
+      this.renderCardHeader(card, provider, agentId, detection, isInstalled, hasApiKey, canEnable, isEnabled, isChecking);
+      if (!isChecking && canEnable) {
+        this.renderCardBody(card, provider, agentId, isInstalled, hasApiKey, config.accessMode, config);
+      }
+    };
+
+    renderContent(this.detectionResults.find((r) => r.id === agentId) ?? null);
+    this.cardUpdaters.set(agentId, renderContent);
+  }
+
+  private renderCardHeader(
+    card: HTMLElement,
+    provider: ProviderConfig,
+    agentId: AgentId,
+    detection: AgentDetectionResult | null,
+    isInstalled: boolean,
+    hasApiKey: boolean,
+    canEnable: boolean,
+    isEnabled: boolean,
+    isChecking: boolean,
+  ): void {
+    const header = card.createDiv({ cls: "ais-card-header" });
+
+    // Icon
+    const icon = header.createDiv({ cls: `ais-provider-icon ais-icon--${provider.id}` });
+    icon.innerHTML = AGENT_ICONS[agentId] ?? "";
+
+    // Meta (name + dots + agent label)
+    const meta = header.createDiv({ cls: "ais-provider-meta" });
+    const nameRow = meta.createDiv({ cls: "ais-provider-name" });
+    nameRow.createSpan({ text: provider.label });
+
+    const dots = nameRow.createSpan({ cls: "ais-dots" });
+    if (provider.cliSupported) {
+      const dot = dots.createSpan({
+        cls: `ais-dot ${isChecking ? "ais-dot--checking" : isInstalled ? "ais-dot--ok" : "ais-dot--off"}`,
+        text: "CLI",
       });
+      if (!isChecking) {
+        dot.title = isInstalled
+          ? `Detected at ${detection?.path ?? ""}`
+          : `'${provider.cliCommand}' not found in PATH`;
+      }
+    }
+    if (provider.apiSupported && provider.apiKeyEnvVar) {
+      const dot = dots.createSpan({
+        cls: `ais-dot ${isChecking ? "ais-dot--checking" : hasApiKey ? "ais-dot--ok" : "ais-dot--off"}`,
+        text: "API",
+      });
+      if (!isChecking) {
+        if (hasApiKey) {
+          const foundVar = detection?.apiKeyVar ?? provider.apiKeyEnvVar;
+          dot.title = `Detected: ${foundVar}. Validity is confirmed on first use.`;
+        } else {
+          const allVars = [provider.apiKeyEnvVar, ...(provider.fallbackApiKeyEnvVars ?? [])].join(" or ");
+          dot.title = `Not detected. Set ${allVars} in your shell profile (.zshrc, .bash_profile)`;
+        }
+      }
+    }
+
+    const agentSuffix = !provider.cliSupported ? " — API only" : !provider.apiSupported ? " — CLI only" : "";
+    meta.createDiv({ cls: "ais-provider-agent", text: provider.agentLabel + agentSuffix });
+
+    // Toggle (right side)
+    createToggle(
+      header,
+      isEnabled,
+      !canEnable,
+      async (val) => {
+        this.plugin.settings.agents[agentId].enabled = val;
+        await this.plugin.saveSettings();
+        this.plugin.agentSidebarView?.refreshTabs();
+      }
+    );
+  }
+
+  private renderCardBody(
+    card: HTMLElement,
+    provider: ProviderConfig,
+    agentId: AgentId,
+    isInstalled: boolean,
+    hasApiKey: boolean,
+    currentMode: AccessMode,
+    config: { extraArgs: string; yoloMode: boolean; accessMode: AccessMode; selectedModel?: string; enabled: boolean },
+  ): void {
+    const body = card.createDiv({ cls: "ais-card-body" });
+
+    // Mode toggle (only when both modes are available)
+    if (provider.cliSupported && provider.apiSupported) {
+      const modeRow = body.createDiv({ cls: "ais-mode-row" });
+      modeRow.createSpan({ cls: "ais-mode-label", text: "Mode" });
+
+      const flip = modeRow.createDiv({ cls: "ais-mode-flip" });
+      const cliLabel = flip.createSpan({ cls: `ais-mode-flip-label${currentMode === "cli" ? " ais-mode-flip-label--active" : ""}`, text: "CLI" });
+
+      const switchEl = flip.createEl("label", { cls: "ais-mode-flip-switch" });
+      const checkbox = switchEl.createEl("input") as HTMLInputElement;
+      checkbox.type = "checkbox";
+      checkbox.checked = currentMode === "api";
+      checkbox.disabled = !isInstalled || !hasApiKey;
+      switchEl.createSpan({ cls: "ais-mode-flip-track" });
+
+      const apiLabel = flip.createSpan({ cls: `ais-mode-flip-label${currentMode === "api" ? " ais-mode-flip-label--active" : ""}`, text: "API" });
+
+      // Fields container — repopulated in place when mode changes
+      const fields = body.createDiv({ cls: "ais-card-fields" });
+      this.populateCardFields(fields, provider, agentId, currentMode, config);
+
+      checkbox.addEventListener("change", () => {
+        const newMode: AccessMode = checkbox.checked ? "api" : "cli";
+        const revert = () => { checkbox.checked = !checkbox.checked; };
+        const hasHistory = this.plugin.agentSidebarView?.hasConversationHistory(agentId) ?? false;
+        if (hasHistory) {
+          const ok = window.confirm(
+            `Switch to ${newMode.toUpperCase()} mode? The current conversation for ${provider.agentLabel} will be cleared.`
+          );
+          if (!ok) { revert(); return; }
+        }
+        cliLabel.toggleClass("ais-mode-flip-label--active", newMode === "cli");
+        apiLabel.toggleClass("ais-mode-flip-label--active", newMode === "api");
+        config.accessMode = newMode;
+        this.plugin.saveSettings();
+        this.plugin.agentSidebarView?.refreshTabs();
+        fields.empty();
+        this.populateCardFields(fields, provider, agentId, newMode, config);
+      });
+    } else {
+      // Only one mode supported — render fields directly
+      this.populateCardFields(body, provider, agentId, currentMode, config);
+    }
+  }
+
+  private populateCardFields(
+    container: HTMLElement,
+    provider: ProviderConfig,
+    agentId: AgentId,
+    mode: AccessMode,
+    config: { extraArgs: string; yoloMode: boolean; accessMode: AccessMode; selectedModel?: string; enabled: boolean },
+  ): void {
+    if (mode === "cli" && provider.cliSupported) {
+      const adapter = AGENT_ADAPTERS.find((a) => a.id === agentId);
+      if (adapter?.yoloArgs?.length) {
+        const yoloRow = container.createDiv({ cls: "ais-yolo-row" });
+        const yoloLabel = yoloRow.createEl("label", { cls: "ais-yolo-label" });
+        const yoloCheck = yoloLabel.createEl("input") as HTMLInputElement;
+        yoloCheck.type = "checkbox";
+        yoloCheck.className = "ais-yolo-check";
+        yoloCheck.checked = config.yoloMode;
+        yoloLabel.createSpan({ cls: "ais-yolo-warn", text: "⚠" });
+        yoloLabel.createSpan({ text: "YOLO mode" });
+        const yoloHint = yoloRow.createSpan({ cls: "ais-yolo-hint", text: adapter.yoloArgs.join(" ") });
+        yoloHint.title = "These flags will be prepended to every CLI invocation";
+        yoloCheck.addEventListener("change", async () => {
+          config.yoloMode = yoloCheck.checked;
+          await this.plugin.saveSettings();
+          this.plugin.agentSidebarView?.refreshTabs();
+        });
+      }
+
+      const fieldRow = container.createDiv({ cls: "ais-field-row" });
+      fieldRow.createEl("label", { cls: "ais-field-label", text: "Extra CLI args" });
+      const input = fieldRow.createEl("input", {
+        cls: "ais-field-input",
+        attr: { type: "text", placeholder: provider.cliArgsPlaceholder ?? "e.g. --flag value" },
+      }) as HTMLInputElement;
+      input.value = config.extraArgs;
+      input.addEventListener("change", async () => {
+        if (SHELL_INJECTION_PATTERN.test(input.value)) {
+          new Notice("Extra args contain unsafe characters. Remove ; | & ` $( > and try again.");
+          input.value = config.extraArgs;
+          return;
+        }
+        config.extraArgs = input.value;
+        await this.plugin.saveSettings();
+      });
+    } else if (mode === "api" && provider.apiSupported) {
+      this.renderModelField(container, agentId, provider.defaultModel);
+    }
+  }
+
+  private renderModelField(body: HTMLElement, agentId: AgentId, defaultModel: string): void {
+    const config = this.plugin.settings.agents[agentId];
+    const provider = PROVIDERS.find((p) => p.agentId === agentId)!;
+    const fieldRow = body.createDiv({ cls: "ais-field-row" });
+    fieldRow.createEl("label", { cls: "ais-field-label", text: "Model" });
+
+    const cached = modelListCache[agentId];
+    if (cached) {
+      this.buildModelSelect(fieldRow, agentId, cached, config.selectedModel ?? provider.defaultModel, defaultModel);
+      return;
+    }
+
+    const loading = fieldRow.createSpan({ cls: "ais-field-loading", text: "Loading models…" });
+
+    (async () => {
+      let models: string[];
+      try {
+        const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 10_000));
+        models = await Promise.race([this.fetchModels(agentId), timeout]);
+        modelListCache[agentId] = models;
+      } catch {
+        models = this.getDefaultModels(agentId);
+        modelListCache[agentId] = models;
+        loading.remove();
+        fieldRow.createSpan({ cls: "ais-field-warning", text: "Could not fetch models — using defaults" });
+        this.buildModelSelect(fieldRow, agentId, models, config.selectedModel ?? provider.defaultModel, defaultModel);
+        return;
+      }
+      loading.remove();
+      this.buildModelSelect(fieldRow, agentId, models, config.selectedModel ?? provider.defaultModel, defaultModel);
+    })();
+  }
+
+  private buildModelSelect(
+    parent: HTMLElement,
+    agentId: AgentId,
+    models: string[],
+    currentModel: string,
+    defaultModel: string
+  ): void {
+    const config = this.plugin.settings.agents[agentId];
+    const effective = models.includes(currentModel) ? currentModel : defaultModel;
+    const wrap = parent.createDiv({ cls: "ais-select-wrap" });
+    const sel = wrap.createEl("select", { cls: "ais-field-select" }) as HTMLSelectElement;
+    for (const m of models) {
+      const opt = sel.createEl("option", { text: m, attr: { value: m } });
+      if (m === effective) opt.selected = true;
+    }
+    sel.addEventListener("change", async () => {
+      config.selectedModel = sel.value;
+      await this.plugin.saveSettings();
+    });
+  }
+
+  private async fetchModels(agentId: AgentId): Promise<string[]> {
+    const detection = this.detectionResults.find((r) => r.id === agentId);
+    if (!detection?.hasApiKey || !detection.apiKeyVar) return this.getDefaultModels(agentId);
+    const { resolveShellEnv } = await import("./shellEnv");
+    const env = await resolveShellEnv();
+    const apiKey = env[detection.apiKeyVar];
+    if (!apiKey) return this.getDefaultModels(agentId);
+
+    if (agentId === "claude") {
+      const r = await requestUrl({
+        url: "https://api.anthropic.com/v1/models",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      });
+      if (r.status !== 200) return this.getDefaultModels(agentId);
+      const d = r.json as { data: { id: string }[] };
+      return d.data.map((m) => m.id);
+    }
+    if (agentId === "codex") {
+      const r = await requestUrl({
+        url: "https://api.openai.com/v1/models",
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (r.status !== 200) return this.getDefaultModels(agentId);
+      const d = r.json as { data: { id: string }[] };
+      return d.data.map((m) => m.id).filter((id) => id.startsWith("gpt-") || /^o\d/.test(id)).sort();
+    }
+    if (agentId === "gemini") {
+      const r = await requestUrl({
+        url: `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      });
+      if (r.status !== 200) return this.getDefaultModels(agentId);
+      const d = r.json as { models: { name: string; supportedGenerationMethods?: string[] }[] };
+      return d.models
+        .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+        .map((m) => m.name.replace("models/", ""));
+    }
+    return this.getDefaultModels(agentId);
+  }
+
+  private getDefaultModels(agentId: AgentId): string[] {
+    const map: Partial<Record<AgentId, string[]>> = {
+      claude:  ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"],
+      codex:   ["gpt-4o", "gpt-4o-mini", "o1", "o1-mini"],
+      gemini:  ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+    };
+    return map[agentId] ?? [];
+  }
+
+  // ── Global options ────────────────────────────────────────────────────────────
+
+  private renderGlobal(root: HTMLElement): void {
+    root.createEl("span", { text: "Global Options", cls: "ais-section-title ais-section-title--lower" });
+    const list = root.createDiv({ cls: "ais-global-list" });
+
+    this.renderGlobalRow(list,
+      "Persist conversations",
+      "Save and restore chat history across Obsidian restarts",
+      this.plugin.settings.persistConversations,
+      async (v) => { this.plugin.settings.persistConversations = v; await this.plugin.saveSettings(); }
+    );
+    this.renderGlobalRow(list,
+      "Debug mode",
+      "Show raw output from CLI agents and API request details in the chat panel",
+      this.plugin.settings.debugMode,
+      async (v) => { this.plugin.settings.debugMode = v; await this.plugin.saveSettings(); }
+    );
+  }
+
+  private renderGlobalRow(
+    parent: HTMLElement,
+    name: string,
+    desc: string,
+    checked: boolean,
+    onChange: (v: boolean) => void
+  ): void {
+    const row = parent.createDiv({ cls: "ais-global-row" });
+    const meta = row.createDiv({ cls: "ais-global-meta" });
+    meta.createDiv({ cls: "ais-global-name", text: name });
+    meta.createDiv({ cls: "ais-global-desc", text: desc });
+    createToggle(row, checked, false, onChange);
   }
 }

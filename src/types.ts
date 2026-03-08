@@ -1,8 +1,13 @@
 export type AgentId = "claude" | "codex" | "gemini" | "copilot";
+export type ProviderId = "anthropic" | "openai" | "google" | "github";
+export type AccessMode = "cli" | "api";
 
 export interface AgentConfig {
   enabled: boolean;
   extraArgs: string;
+  yoloMode: boolean;
+  accessMode: AccessMode;
+  selectedModel?: string;
 }
 
 export interface AgentDetectionResult {
@@ -11,6 +16,8 @@ export interface AgentDetectionResult {
   command: string;
   path: string;
   isInstalled: boolean;
+  hasApiKey: boolean;
+  apiKeyVar: string;
 }
 
 export interface AgentAdapterConfig {
@@ -22,6 +29,8 @@ export interface AgentAdapterConfig {
   requiresTty?: boolean;       // wrap with `script` to provide a fake PTY on stdin
   promptFlag?: string;         // if set, pass prompt as `--flag <value>` instead of bare positional arg
   buildArgs: (extraArgs: string[]) => string[];
+  apiKeyVar?: string;          // optional env var to check for API key detection
+  yoloArgs?: string[];         // extra CLI flags injected when YOLO mode is enabled
 }
 
 export type MessageRole = "user" | "assistant" | "system";
@@ -60,4 +69,24 @@ export interface PluginSettings {
   persistConversations: boolean;
   debugMode: boolean;
   workingDirectory?: string;
+}
+
+/** Shared interface implemented by both AgentRunner (CLI) and AgentApiRunner (API) */
+export interface AgentExecutionRunner {
+  run(messages: ChatMessage[], context: string): Promise<void>;
+  dispose(): void;
+  // EventEmitter-compatible methods (both AgentRunner and AgentApiRunner extend EventEmitter)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, listener: (...args: any[]) => void): this;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  off(event: string, listener: (...args: any[]) => void): this;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit(event: string, ...args: any[]): boolean;
+  removeAllListeners(event?: string): this;
+}
+
+/** Per-provider streaming + model listing interface */
+export interface ProviderAdapter {
+  stream(messages: ChatMessage[], context: string, model: string): AsyncIterable<string>;
+  listModels(): Promise<string[]>;
 }
