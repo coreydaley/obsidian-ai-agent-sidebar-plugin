@@ -24,7 +24,7 @@ export interface AgentSettingsOverride {
   apiKey?: string;
 }
 
-export async function createTestVault(agentSettings?: Record<string, AgentSettingsOverride>): Promise<TestVault> {
+export async function createTestVault(agentSettings?: Record<string, AgentSettingsOverride>, options?: { debugMode?: boolean }): Promise<TestVault> {
   const mainJs = path.join(PROJECT_ROOT, "main.js");
   if (!fs.existsSync(mainJs)) {
     throw new Error("Plugin not built — run 'npm run build' first.");
@@ -65,7 +65,7 @@ export async function createTestVault(agentSettings?: Record<string, AgentSettin
     JSON.stringify({
       agents: mergedAgents,
       persistConversations: false,
-      debugMode: false,
+      debugMode: options?.debugMode ?? false,
     })
   );
 

@@ -48,9 +48,15 @@ describe("settings-ui", () => {
     const settingsPanel = page.locator(".vertical-tab-header");
     await settingsPanel.waitFor({ state: "visible", timeout: 30_000 });
 
-    // Navigate to plugin settings tab: look for "AI Agent Sidebar" in the left nav
-    const pluginTab = page.locator('.vertical-tab-nav-item, .nav-item').filter({ hasText: /AI Agent Sidebar/i });
-    await pluginTab.waitFor({ state: "visible", timeout: 10_000 });
+    // Navigate to plugin settings tab. Wait for DOM attachment first (the tab may
+    // still be registering via onload()), scroll to reveal it, then click.
+    const pluginTab = page.locator(".vertical-tab-nav-item").filter({ hasText: "AI Agent Sidebar" });
+    await pluginTab.waitFor({ state: "attached", timeout: 10_000 });
+    await page.evaluate(() => {
+      const nav = document.querySelector(".vertical-tab-header");
+      if (nav) nav.scrollTop = nav.scrollHeight;
+    });
+    await pluginTab.waitFor({ state: "visible", timeout: 5_000 });
     await pluginTab.click();
     await page.waitForTimeout(500);
   });

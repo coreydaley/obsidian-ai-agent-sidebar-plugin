@@ -46,8 +46,14 @@ async function openPluginSettings(page: Page): Promise<void> {
   // Use keyboard shortcut — the settings gear may not be reachable while the sidebar is open
   await page.keyboard.press("Meta+,");
   await page.locator(".vertical-tab-header").waitFor({ state: "visible", timeout: 15_000 });
-  const pluginTab = page.locator(".vertical-tab-nav-item, .nav-item").filter({ hasText: /AI Agent Sidebar/i });
-  await pluginTab.waitFor({ state: "visible", timeout: 10_000 });
+  const pluginTab = page.locator(".vertical-tab-nav-item").filter({ hasText: "AI Agent Sidebar" });
+  // Wait for DOM attachment first (tab may be below the fold), then scroll to reveal.
+  await pluginTab.waitFor({ state: "attached", timeout: 10_000 });
+  await page.evaluate(() => {
+    const nav = document.querySelector(".vertical-tab-header");
+    if (nav) nav.scrollTop = nav.scrollHeight;
+  });
+  await pluginTab.waitFor({ state: "visible", timeout: 5_000 });
   await pluginTab.click();
   await page.waitForTimeout(500);
 }
