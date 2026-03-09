@@ -43,6 +43,13 @@ export class FileOperationsHandler {
       throw new Error("Path cannot be empty");
     }
 
+    // Strip the vault root prefix when a model passes an absolute path rooted at
+    // the vault (e.g. "/var/vault/notes/file.md" → "notes/file.md"). This handles
+    // small LLMs that prepend the vault path despite being instructed not to.
+    if (this.vaultRoot && relativePath.startsWith(this.vaultRoot + "/")) {
+      relativePath = relativePath.slice(this.vaultRoot.length + 1);
+    }
+
     // Normalize Obsidian-style path separators
     const normalized = normalizePath(relativePath);
 

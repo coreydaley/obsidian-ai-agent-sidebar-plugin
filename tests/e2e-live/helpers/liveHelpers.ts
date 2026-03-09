@@ -153,17 +153,24 @@ export async function waitForAssistantMessageComplete(page: Page, timeoutMs = 60
  * detail so the test failure is immediately actionable.
  */
 export async function assertNoChatError(page: Page): Promise<void> {
+  // Check for runner-level errors (stream failure, API error, etc.)
   const errorEl = page.locator(CHAT_ERROR);
-  if (await errorEl.count() === 0) return;
+  if (await errorEl.count() > 0) {
+    const errorText = (await errorEl.first().textContent()) ?? "(no error text)";
+    const debugLog = page.locator(".ai-sidebar-debug-log");
+    const debugText = await debugLog.count() > 0
+      ? (await debugLog.last().textContent()) ?? ""
+      : "";
+    const detail = debugText ? `${errorText}\n\nDebug log:\n${debugText}` : errorText;
+    throw new Error(detail);
+  }
 
-  const errorText = (await errorEl.first().textContent()) ?? "(no error text)";
-  const debugLog = page.locator(".ai-sidebar-debug-log");
-  const debugText = await debugLog.count() > 0
-    ? (await debugLog.last().textContent()) ?? ""
-    : "";
-
-  const detail = debugText ? `${errorText}\n\nDebug log:\n${debugText}` : errorText;
-  throw new Error(detail);
+  // Check for file-op level errors (wrong path, vault write failure, etc.)
+  const fileOpError = page.locator(".ai-sidebar-fileop-error");
+  if (await fileOpError.count() > 0) {
+    const text = (await fileOpError.first().textContent()) ?? "(no fileop error text)";
+    throw new Error(`File-op error: ${text}`);
+  }
 }
 
 // filename is hardcoded per describe block; do not accept user-controlled filenames
