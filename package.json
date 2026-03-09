@@ -12,6 +12,7 @@
     "test-integration": "vitest run --config vitest.integration.config.ts",
     "test-e2e": "vitest run --config vitest.e2e.config.ts",
     "test-e2e-live": "vitest run --config vitest.e2e-live.config.ts",
+    "test-e2e-openai-compatible": "vitest run --config vitest.e2e-openai-compatible.config.ts",
     "lint": "eslint src"
   },
   "keywords": [

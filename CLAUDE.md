@@ -14,6 +14,7 @@ npm run test-integration # integration tests (vitest, real CLI/env, ~15 s timeou
 npm run lint             # eslint src/
 make test                # runs unit, integration, and e2e tests
 make test-e2e-live       # live E2E tests (requires real CLIs + API keys, NOT part of make test)
+make test-e2e-openai-compatible  # live E2E for openai-compat agent (requires Docker)
 make test-unit           # runs npm test + npm run test-unit
 make test-integration    # equivalent make target
 ```
