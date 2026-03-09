@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
-import { createRunner } from "../../src/runnerFactory";
+import { createRunner, isValidBaseUrl } from "../../src/runnerFactory";
 import { AgentRunner } from "../../src/AgentRunner";
 import { AgentApiRunner } from "../../src/AgentApiRunner";
 import type {
@@ -28,11 +28,14 @@ import type { FileOperationsHandler } from "../../src/FileOperationsHandler";
 /** A real env var + value injected into process.env so resolveShellEnv picks it up */
 const TEST_API_KEY_VAR = "OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_API_KEY";
 const TEST_API_KEY_VALUE = "test-runner-factory-key";
+const TEST_BASE_URL_VAR = "OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_BASE_URL";
+const TEST_BASE_URL_VALID = "http://127.0.0.1:9999";
 
 beforeAll(() => {
   // Must be set before any call to resolveShellEnv() so the module-level
-  // promise resolves with this value present.
+  // promise resolves with these values present.
   process.env[TEST_API_KEY_VAR] = TEST_API_KEY_VALUE;
+  process.env[TEST_BASE_URL_VAR] = TEST_BASE_URL_VALID;
 });
 
 // ---------------------------------------------------------------------------
@@ -161,6 +164,69 @@ describe("API mode", () => {
 
     // Should still return a usable AgentApiRunner (not an error runner)
     expect(runner).toBeInstanceOf(AgentApiRunner);
+  });
+});
+
+describe("base URL env var override", () => {
+  it("isValidBaseUrl accepts http:// URLs", () => {
+    expect(isValidBaseUrl("http://127.0.0.1:9999")).toBe(true);
+    expect(isValidBaseUrl("http://localhost:8080")).toBe(true);
+    expect(isValidBaseUrl("http://example.com/v1")).toBe(true);
+  });
+
+  it("isValidBaseUrl accepts https:// URLs", () => {
+    expect(isValidBaseUrl("https://api.example.com")).toBe(true);
+    expect(isValidBaseUrl("https://proxy.corp.internal:8443/v1")).toBe(true);
+  });
+
+  it("isValidBaseUrl rejects non-URL strings", () => {
+    expect(isValidBaseUrl("not-a-url")).toBe(false);
+    expect(isValidBaseUrl("")).toBe(false);
+    expect(isValidBaseUrl("  ")).toBe(false);
+    expect(isValidBaseUrl("ftp://example.com")).toBe(false);
+    expect(isValidBaseUrl("file:///etc/passwd")).toBe(false);
+    expect(isValidBaseUrl("javascript:alert(1)")).toBe(false);
+  });
+
+  it("factory returns AgentApiRunner when valid base URL env var is set", async () => {
+    // TEST_BASE_URL_VAR is set in beforeAll to a valid http:// URL
+    const detection = makeDetection("claude", {
+      hasApiKey: true,
+      apiKeyVar: TEST_API_KEY_VAR,
+    });
+    const settings = makeSettings("claude", "api");
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    // Should still return a usable AgentApiRunner (not an error runner)
+    expect(runner).toBeInstanceOf(AgentApiRunner);
+  });
+
+  it("openai-compat does not use env var base URL path", async () => {
+    // openai-compat uses settings-based URL; should fail with "No base URL configured"
+    // when openaiCompatBaseUrl is not set in settings (not from env var)
+    const detection = makeDetection("openai-compat" as AgentId, {
+      hasApiKey: false,
+      apiKeyVar: "",
+    });
+    const settings: PluginSettings = {
+      agents: {
+        claude: { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
+        codex: { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
+        gemini: { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
+        copilot: { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
+        "openai-compat": { enabled: true, extraArgs: "", yoloMode: false, accessMode: "api" },
+      },
+      persistConversations: false,
+      debugMode: false,
+    };
+
+    const runner = await createRunner("openai-compat" as AgentId, settings, [detection], mockHandler);
+
+    // Without openaiCompatBaseUrl in settings, should get an error runner
+    expect(runner).not.toBeInstanceOf(AgentApiRunner);
+    const msg = await collectFirstError(runner);
+    expect(msg).toMatch(/No base URL configured/i);
   });
 });
 
