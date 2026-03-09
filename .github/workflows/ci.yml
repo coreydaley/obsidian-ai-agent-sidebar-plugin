@@ -56,9 +56,10 @@ jobs:
 
   e2e-tests:
     name: E2E Tests
-    # E2E tests require Obsidian's Linux AppImage and a virtual framebuffer.
+    # E2E tests require Obsidian's Linux AppImage and a virtual framebuffer (xvfb).
+    # macOS E2E is not yet in CI: Obsidian ships as a .dmg on macOS (no AppImage),
+    # so a download-and-extract step for the runner would need separate work.
     # Windows E2E is a known gap — see SPRINT-010 Known Gaps for the path forward.
-    # macOS E2E is not run in CI to avoid interfering with the runner's Obsidian install.
     runs-on: ubuntu-latest
 
     steps:
