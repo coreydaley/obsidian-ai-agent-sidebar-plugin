@@ -10,6 +10,10 @@ import {
   SETTINGS_SECTION_OPENAI,
   SETTINGS_SECTION_GOOGLE,
   SETTINGS_SECTION_GITHUB,
+  SETTINGS_SECTION_OPENAI_COMPAT,
+  OPENAI_COMPAT_BASE_URL,
+  OPENAI_COMPAT_API_KEY,
+  OPENAI_COMPAT_MODEL,
   ENABLE_TOGGLE_ANY,
 } from "./helpers/selectors";
 
@@ -84,6 +88,25 @@ describe("settings-ui", () => {
 
   it("GitHub provider section is present", async () => {
     await page.locator(SETTINGS_SECTION_GITHUB).waitFor({ state: "visible", timeout: 10_000 });
+  });
+
+  it("OpenAI Compatible provider section is present", async () => {
+    await page.locator(SETTINGS_SECTION_OPENAI_COMPAT).waitFor({ state: "visible", timeout: 10_000 });
+  });
+
+  it("OpenAI Compatible section has a Base URL field", async () => {
+    const section = page.locator(SETTINGS_SECTION_OPENAI_COMPAT);
+    await section.locator(OPENAI_COMPAT_BASE_URL).waitFor({ state: "visible", timeout: 10_000 });
+  });
+
+  it("OpenAI Compatible section has an API Key field", async () => {
+    const section = page.locator(SETTINGS_SECTION_OPENAI_COMPAT);
+    await section.locator(OPENAI_COMPAT_API_KEY).waitFor({ state: "visible", timeout: 10_000 });
+  });
+
+  it("OpenAI Compatible section has a Model field", async () => {
+    const section = page.locator(SETTINGS_SECTION_OPENAI_COMPAT);
+    await section.locator(OPENAI_COMPAT_MODEL).waitFor({ state: "visible", timeout: 10_000 });
   });
 
   it("enable toggle is present and its checked state changes when clicked", async () => {
