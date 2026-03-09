@@ -14,6 +14,8 @@ An Obsidian plugin that adds a sidebar where you can chat with AI agents (Claude
 - **Persist conversations**: Optionally save and restore chat history across Obsidian restarts
 - **Debug mode**: Optionally show raw CLI output and API request details in the chat panel
 
+![AI Agent Sidebar chat interface](docs/images/ai-agent-sidebar-chat-interface.png)
+
 ## Supported Agents
 
 | Agent | Provider | CLI | API |
@@ -98,6 +100,8 @@ OPENAI_COMPAT_API_KEY
 Local servers like Ollama do not require an API key — leave the field blank or set any non-empty placeholder.
 
 ## Configuration
+
+![AI Agent Sidebar settings](docs/images/ai-agent-sidebar-settings.png)
 
 Open **Settings → AI Agent Sidebar** to configure each provider.
 
