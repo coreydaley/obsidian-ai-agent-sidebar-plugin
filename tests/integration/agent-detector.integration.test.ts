@@ -2,16 +2,26 @@
  * Integration tests for AgentDetector.
  *
  * Uses a real AgentDetector instance with controlled adapter configs.
- * Tests binary resolution, API key detection (via process.env), caching,
- * cache invalidation, and stream detection callbacks.
+ * Tests binary resolution, API key detection, caching, cache invalidation,
+ * and stream detection callbacks.
  *
- * No network calls are made. resolveShellEnv() falls through to process.env
- * (which we control) since the test process has a known environment.
+ * resolveShellEnv() is mocked so tests never spawn a real shell or read real
+ * API keys. Each describe block configures the mock env it needs.
+ *
+ * No network calls are made.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+vi.mock("../../src/shellEnv", () => ({
+  resolveShellEnv: vi.fn().mockResolvedValue({}),
+}));
+
+import { resolveShellEnv } from "../../src/shellEnv";
 import { AgentDetector } from "../../src/AgentDetector";
 import type { AgentAdapterConfig, AgentId } from "../../src/types";
+
+const mockResolveShellEnv = vi.mocked(resolveShellEnv);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -89,10 +99,14 @@ describe("binary detection", () => {
 });
 
 describe("API key detection", () => {
+  const KEY_VAR = "OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_API_KEY";
+
+  beforeEach(() => {
+    mockResolveShellEnv.mockResolvedValue({});
+  });
+
   it("reports hasApiKey true when key env var is set", async () => {
-    // Use the primary OBSIDIAN_ namespace var — set it now so detectOne picks it up.
-    const KEY_VAR = "OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_API_KEY";
-    process.env[KEY_VAR] = "test-key-value";
+    mockResolveShellEnv.mockResolvedValueOnce({ [KEY_VAR]: "fake-test-key" });
     const detector = new AgentDetector();
     const results = await detector.detect([nodeAdapter()]);
 
@@ -103,8 +117,7 @@ describe("API key detection", () => {
 
   it("reports hasApiKey false for an agent with no API key env vars defined", async () => {
     // 'copilot' has no apiKeyEnvVar or fallbackApiKeyEnvVars in PROVIDERS,
-    // so candidateVars is empty and hasApiKey is always false regardless of
-    // the resolveShellEnv() cache.
+    // so candidateVars is empty and hasApiKey is always false.
     const adapter: AgentAdapterConfig = {
       id: "copilot" as AgentId,
       name: "GitHub Copilot",
@@ -122,8 +135,9 @@ describe("API key detection", () => {
 
 describe("caching", () => {
   beforeEach(() => {
-    // Ensure KEY is set so detect() calls succeed
-    process.env["OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_API_KEY"] = "test-key";
+    mockResolveShellEnv.mockResolvedValue({
+      "OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_API_KEY": "test-key",
+    });
   });
 
   it("returns cached results on second detect() call without re-running which", async () => {

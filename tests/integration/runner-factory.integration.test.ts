@@ -4,12 +4,17 @@
  * Tests the factory's branching logic: CLI vs API mode, missing binary,
  * missing API key, invalid model name, and unknown access mode.
  *
- * NOTE: resolveShellEnv() has a module-level cache. pool: "forks" ensures
- * each test file gets a fresh process, so process.env mutations set here
- * are visible when shellEnv first resolves.
+ * resolveShellEnv() is mocked so tests never spawn a real shell or read real
+ * API keys. The mock returns a controlled env with fake test values.
  */
 
 import { describe, it, expect, beforeAll, vi, afterEach } from "vitest";
+
+vi.mock("../../src/shellEnv", () => ({
+  resolveShellEnv: vi.fn(),
+}));
+
+import { resolveShellEnv } from "../../src/shellEnv";
 import { createRunner, isValidBaseUrl } from "../../src/runnerFactory";
 import { AgentRunner } from "../../src/AgentRunner";
 import { AgentApiRunner } from "../../src/AgentApiRunner";
@@ -25,17 +30,16 @@ import type { FileOperationsHandler } from "../../src/FileOperationsHandler";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** A real env var + value injected into process.env so resolveShellEnv picks it up */
 const TEST_API_KEY_VAR = "OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_API_KEY";
 const TEST_API_KEY_VALUE = "test-runner-factory-key";
 const TEST_BASE_URL_VAR = "OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_BASE_URL";
 const TEST_BASE_URL_VALID = "http://127.0.0.1:9999";
 
 beforeAll(() => {
-  // Must be set before any call to resolveShellEnv() so the module-level
-  // promise resolves with these values present.
-  process.env[TEST_API_KEY_VAR] = TEST_API_KEY_VALUE;
-  process.env[TEST_BASE_URL_VAR] = TEST_BASE_URL_VALID;
+  vi.mocked(resolveShellEnv).mockResolvedValue({
+    [TEST_API_KEY_VAR]: TEST_API_KEY_VALUE,
+    [TEST_BASE_URL_VAR]: TEST_BASE_URL_VALID,
+  });
 });
 
 // ---------------------------------------------------------------------------
