@@ -5,6 +5,10 @@
  * Assumes a fully configured system: Obsidian installed, all CLI agents on PATH.
  * Missing prerequisites cause the suite to fail with a descriptive error.
  *
+ * Each suite starts with all agents disabled and configures the target agent
+ * entirely through the Obsidian settings UI, exercising the same flow a real
+ * user follows on first setup.
+ *
  * Run with: make test-e2e-live
  * NOT included in: make test
  */
@@ -13,13 +17,27 @@ import type { Page } from "playwright";
 import { findObsidianBinary } from "../e2e/helpers/obsidianBinary";
 import { createTestVault, type TestVault } from "../e2e/helpers/vaultFactory";
 import { launchObsidian, quitObsidian, type ObsidianInstance } from "../e2e/helpers/electronHarness";
-import { TAB_BTN_CLAUDE, TAB_BTN_CODEX, TAB_BTN_COPILOT } from "../e2e/helpers/selectors";
+import {
+  TAB_BTN_CLAUDE,
+  TAB_BTN_CODEX,
+  TAB_BTN_COPILOT,
+  SETTINGS_SECTION_ANTHROPIC,
+  SETTINGS_SECTION_OPENAI,
+  SETTINGS_SECTION_GITHUB,
+  ENABLE_TOGGLE_CLAUDE,
+  ENABLE_TOGGLE_CODEX,
+  ENABLE_TOGGLE_COPILOT,
+} from "../e2e/helpers/selectors";
 import {
   isBinaryInstalled,
   shouldSkipSuite,
+  navigateToPluginSettings,
+  waitForAgentCardReady,
+  enableYoloMode,
   openSidebar,
   sendChatMessage,
   waitForAssistantMessageComplete,
+  assertNoChatError,
   buildFileCreatePrompt,
   pollForFile,
   saveFailureScreenshot,
@@ -39,10 +57,17 @@ describe.skipIf(shouldSkipSuite("cli", "claude"))("live-e2e: claude CLI", () => 
     if (!binary) throw new Error("Obsidian binary not found. Install Obsidian before running live E2E tests.");
     if (!isBinaryInstalled("claude")) throw new Error("'claude' CLI not found on PATH. Install the Claude CLI before running live E2E tests.");
 
-    vault = await createTestVault({
-      claude: { enabled: true, yoloMode: true, accessMode: "cli" },
-    });
-    ({ app, page } = await launchObsidian(binary, vault.vaultPath));
+    vault = await createTestVault({}, { debugMode: true });
+    ({ app, page } = await launchObsidian(binary, vault.vaultPath, { keepSettingsOpen: true }));
+    await navigateToPluginSettings(page);
+
+    // Configure claude CLI via the settings UI: wait for detection, enable the
+    // agent, then enable YOLO mode so file operations run without confirmation.
+    await waitForAgentCardReady(page, SETTINGS_SECTION_ANTHROPIC);
+    await page.locator(ENABLE_TOGGLE_CLAUDE).click();
+    await enableYoloMode(page, SETTINGS_SECTION_ANTHROPIC);
+
+    await page.keyboard.press("Escape");
     await openSidebar(page);
     await page.locator(TAB_BTN_CLAUDE).waitFor({ state: "visible", timeout: 10_000 });
     await page.locator(TAB_BTN_CLAUDE).click();
@@ -60,12 +85,14 @@ describe.skipIf(shouldSkipSuite("cli", "claude"))("live-e2e: claude CLI", () => 
   it("sends a simple message and receives a response", async () => {
     await sendChatMessage(page, "Say hello briefly.");
     await waitForAssistantMessageComplete(page);
+    await assertNoChatError(page);
   });
 
   it("creates a file in the vault via the file-op protocol", async () => {
     const filename = "live-e2e-cli-claude.md";
     await sendChatMessage(page, buildFileCreatePrompt(filename));
     await waitForAssistantMessageComplete(page, 90_000);
+    await assertNoChatError(page);
     await pollForFile(vault.vaultPath, filename);
   });
 });
@@ -84,10 +111,17 @@ describe.skipIf(shouldSkipSuite("cli", "codex"))("live-e2e: codex CLI", () => {
     if (!binary) throw new Error("Obsidian binary not found. Install Obsidian before running live E2E tests.");
     if (!isBinaryInstalled("codex")) throw new Error("'codex' CLI not found on PATH. Install the Codex CLI before running live E2E tests.");
 
-    vault = await createTestVault({
-      codex: { enabled: true, yoloMode: true, accessMode: "cli" },
-    });
-    ({ app, page } = await launchObsidian(binary, vault.vaultPath));
+    vault = await createTestVault({}, { debugMode: true });
+    ({ app, page } = await launchObsidian(binary, vault.vaultPath, { keepSettingsOpen: true }));
+    await navigateToPluginSettings(page);
+
+    // Configure codex CLI via the settings UI: wait for detection, enable the
+    // agent, then enable YOLO mode so file operations run without confirmation.
+    await waitForAgentCardReady(page, SETTINGS_SECTION_OPENAI);
+    await page.locator(ENABLE_TOGGLE_CODEX).click();
+    await enableYoloMode(page, SETTINGS_SECTION_OPENAI);
+
+    await page.keyboard.press("Escape");
     await openSidebar(page);
     await page.locator(TAB_BTN_CODEX).waitFor({ state: "visible", timeout: 10_000 });
     await page.locator(TAB_BTN_CODEX).click();
@@ -105,12 +139,14 @@ describe.skipIf(shouldSkipSuite("cli", "codex"))("live-e2e: codex CLI", () => {
   it("sends a simple message and receives a response", async () => {
     await sendChatMessage(page, "Say hello briefly.");
     await waitForAssistantMessageComplete(page);
+    await assertNoChatError(page);
   });
 
   it("creates a file in the vault via the file-op protocol", async () => {
     const filename = "live-e2e-cli-codex.md";
     await sendChatMessage(page, buildFileCreatePrompt(filename));
     await waitForAssistantMessageComplete(page, 90_000);
+    await assertNoChatError(page);
     await pollForFile(vault.vaultPath, filename);
   });
 });
@@ -133,10 +169,17 @@ describe.skipIf(shouldSkipSuite("cli", "copilot"))("live-e2e: copilot CLI", () =
     if (!binary) throw new Error("Obsidian binary not found. Install Obsidian before running live E2E tests.");
     if (!isBinaryInstalled("copilot")) throw new Error("'copilot' CLI not found on PATH. Install the GitHub Copilot CLI before running live E2E tests.");
 
-    vault = await createTestVault({
-      copilot: { enabled: true, yoloMode: true, accessMode: "cli" },
-    });
-    ({ app, page } = await launchObsidian(binary, vault.vaultPath));
+    vault = await createTestVault({}, { debugMode: true });
+    ({ app, page } = await launchObsidian(binary, vault.vaultPath, { keepSettingsOpen: true }));
+    await navigateToPluginSettings(page);
+
+    // Configure copilot CLI via the settings UI: wait for detection, enable the
+    // agent, then enable YOLO mode so file operations run without confirmation.
+    await waitForAgentCardReady(page, SETTINGS_SECTION_GITHUB);
+    await page.locator(ENABLE_TOGGLE_COPILOT).click();
+    await enableYoloMode(page, SETTINGS_SECTION_GITHUB);
+
+    await page.keyboard.press("Escape");
     await openSidebar(page);
     await page.locator(TAB_BTN_COPILOT).waitFor({ state: "visible", timeout: 10_000 });
     await page.locator(TAB_BTN_COPILOT).click();
@@ -154,12 +197,14 @@ describe.skipIf(shouldSkipSuite("cli", "copilot"))("live-e2e: copilot CLI", () =
   it("sends a simple message and receives a response", async () => {
     await sendChatMessage(page, "Say hello briefly.");
     await waitForAssistantMessageComplete(page);
+    await assertNoChatError(page);
   });
 
   it("creates a file in the vault via the file-op protocol", async () => {
     const filename = "live-e2e-cli-copilot.md";
     await sendChatMessage(page, buildFileCreatePrompt(filename));
     await waitForAssistantMessageComplete(page, 90_000);
+    await assertNoChatError(page);
     await pollForFile(vault.vaultPath, filename);
   });
 });

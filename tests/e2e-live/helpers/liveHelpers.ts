@@ -7,6 +7,7 @@ import {
   SIDEBAR_ROOT,
   CHAT_INPUT,
   CHAT_MSG_ASSISTANT,
+  CHAT_ERROR,
   SETTINGS_GEAR,
 } from "../../e2e/helpers/selectors";
 
@@ -37,7 +38,7 @@ function envEnabled(key: string): boolean {
  *   SKIP_GEMINI_API=1        skip gemini API only
  */
 export function shouldSkipSuite(type: "cli" | "api", agent: string): boolean {
-  const A = agent.toUpperCase();
+  const A = agent.toUpperCase().replace(/-/g, "_");
   const T = type.toUpperCase();
   return (
     envEnabled(`SKIP_${T}`) ||       // SKIP_CLI, SKIP_API
@@ -68,11 +69,69 @@ export async function openSidebar(page: Page): Promise<void> {
   await page.locator(SIDEBAR_ROOT).waitFor({ state: "visible", timeout: 10_000 });
 }
 
+/**
+ * Navigate to the AI Agent Sidebar plugin settings tab.
+ *
+ * Waits for the ribbon button first — it is added at the end of onload() so its
+ * presence confirms the plugin is fully loaded and the settings tab is registered.
+ * Opens the settings panel via Meta+, if it is not already visible (e.g. when
+ * keepSettingsOpen:false was used or when tests open settings mid-run).
+ */
 export async function navigateToPluginSettings(page: Page): Promise<void> {
-  await page.locator(".vertical-tab-header").waitFor({ state: "visible", timeout: 15_000 });
-  const pluginTab = page.locator(".vertical-tab-header-item").filter({ hasText: "AI Agent Sidebar" });
+  await page.locator(RIBBON_OPEN_SIDEBAR).waitFor({ state: "visible", timeout: 30_000 });
+  const settingsPanel = page.locator(".vertical-tab-header");
+  if (!await settingsPanel.isVisible()) {
+    await page.keyboard.press("Meta+,");
+    await settingsPanel.waitFor({ state: "visible", timeout: 15_000 });
+  }
+  const pluginTab = page.locator(".vertical-tab-nav-item").filter({ hasText: "AI Agent Sidebar" });
+  // Wait for the tab to exist in the DOM (may be below the fold or still being
+  // registered by onload()), then scroll to reveal it before waiting for visibility.
+  await pluginTab.waitFor({ state: "attached", timeout: 10_000 });
+  await page.evaluate(() => {
+    const nav = document.querySelector(".vertical-tab-header");
+    if (nav) nav.scrollTop = nav.scrollHeight;
+  });
+  await pluginTab.waitFor({ state: "visible", timeout: 5_000 });
   await pluginTab.click();
   await page.waitForTimeout(500);
+}
+
+/**
+ * Wait for an agent provider card to finish detection so the card body is visible.
+ * The card body only renders once AgentDetector resolves and canEnable=true, so its
+ * presence confirms the enable toggle is interactive and mode/field controls are ready.
+ */
+export async function waitForAgentCardReady(page: Page, sectionSelector: string): Promise<void> {
+  const cardBody = page.locator(`${sectionSelector} .ais-card-body`);
+  await cardBody.waitFor({ state: "visible", timeout: 15_000 });
+}
+
+/**
+ * Switch an agent to API mode via the mode flip switch in the settings UI.
+ * The mode flip label (data-testid="ai-agent-mode-flip-<id>") wraps a checkbox
+ * whose checked state reflects the current mode (checked = API). Only clicks if
+ * the agent is not already in API mode.
+ */
+export async function switchToApiMode(page: Page, modeFlipSelector: string): Promise<void> {
+  const modeFlipLabel = page.locator(modeFlipSelector);
+  await modeFlipLabel.waitFor({ state: "visible", timeout: 5_000 });
+  const isApiMode = await modeFlipLabel.locator("input").isChecked();
+  if (!isApiMode) {
+    await modeFlipLabel.click();
+  }
+}
+
+/**
+ * Enable YOLO mode for a CLI agent via its checkbox in the settings card body.
+ * Only clicks if not already checked.
+ */
+export async function enableYoloMode(page: Page, sectionSelector: string): Promise<void> {
+  const yoloCheck = page.locator(`${sectionSelector} .ais-yolo-check`);
+  await yoloCheck.waitFor({ state: "visible", timeout: 5_000 });
+  if (!await yoloCheck.isChecked()) {
+    await yoloCheck.click();
+  }
 }
 
 export async function sendChatMessage(page: Page, text: string): Promise<void> {
@@ -88,13 +147,32 @@ export async function waitForAssistantMessageComplete(page: Page, timeoutMs = 60
   await completedMsg.waitFor({ state: "visible", timeout: timeoutMs });
 }
 
+/**
+ * Assert that no chat error element is visible. If one is found, reads its text
+ * and any debug log output from the preceding message, then throws with the full
+ * detail so the test failure is immediately actionable.
+ */
+export async function assertNoChatError(page: Page): Promise<void> {
+  const errorEl = page.locator(CHAT_ERROR);
+  if (await errorEl.count() === 0) return;
+
+  const errorText = (await errorEl.first().textContent()) ?? "(no error text)";
+  const debugLog = page.locator(".ai-sidebar-debug-log");
+  const debugText = await debugLog.count() > 0
+    ? (await debugLog.last().textContent()) ?? ""
+    : "";
+
+  const detail = debugText ? `${errorText}\n\nDebug log:\n${debugText}` : errorText;
+  throw new Error(detail);
+}
+
 // filename is hardcoded per describe block; do not accept user-controlled filenames
 export function buildFileCreatePrompt(filename: string): string {
   return (
-    `Write this exact file-op block and nothing else:\n` +
-    `:::file-op\n` +
-    `{"op":"write","path":"${filename}","content":"Created by live E2E test."}\n` +
-    `:::\n`
+    `Create a file using the file-op write protocol. ` +
+    `Use path "${filename}" exactly as written (it is already relative to the vault root — do NOT prepend the vault path). ` +
+    `Set content to "Created by live E2E test." ` +
+    `Output only the :::file-op block, nothing else.`
   );
 }
 
