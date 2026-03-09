@@ -137,8 +137,8 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
       const isChecking = detection === null;
       const isInstalled = detection?.isInstalled ?? false;
       const hasApiKey   = detection?.hasApiKey  ?? false;
-      const canEnable   = isInstalled || hasApiKey;
       const config      = this.plugin.settings.agents[agentId];
+      const canEnable   = isInstalled || hasApiKey || Boolean(config.apiKey?.trim());
 
       if (!isChecking) {
         let mode = config.accessMode;
@@ -245,16 +245,18 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
     // Mode toggle (only when both modes are available)
     if (provider.cliSupported && provider.apiSupported) {
       const modeRow = body.createDiv({ cls: "ais-mode-row" });
+      modeRow.dataset.testid = `ai-agent-mode-row-${agentId}`;
       modeRow.createSpan({ cls: "ais-mode-label", text: "Mode" });
 
       const flip = modeRow.createDiv({ cls: "ais-mode-flip" });
       const cliLabel = flip.createSpan({ cls: `ais-mode-flip-label${currentMode === "cli" ? " ais-mode-flip-label--active" : ""}`, text: "CLI" });
 
       const switchEl = flip.createEl("label", { cls: "ais-mode-flip-switch" });
+      switchEl.dataset.testid = `ai-agent-mode-flip-${agentId}`;
       const checkbox = switchEl.createEl("input");
       checkbox.type = "checkbox";
       checkbox.checked = currentMode === "api";
-      checkbox.disabled = !isInstalled || !hasApiKey;
+      checkbox.disabled = !isInstalled && !hasApiKey && !Boolean(this.plugin.settings.agents[agentId].apiKey?.trim());
       switchEl.createSpan({ cls: "ais-mode-flip-track" });
 
       const apiLabel = flip.createSpan({ cls: `ais-mode-flip-label${currentMode === "api" ? " ais-mode-flip-label--active" : ""}`, text: "API" });
@@ -325,7 +327,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
       fieldRow.createEl("label", { cls: "ais-field-label", text: "Extra CLI args" });
       const input = fieldRow.createEl("input", {
         cls: "ais-field-input",
-        attr: { type: "text", placeholder: provider.cliArgsPlaceholder ?? "e.g. --flag value" },
+        attr: { type: "text", placeholder: provider.cliArgsPlaceholder ?? "e.g. --flag value", "data-testid": `ai-agent-extra-args-${agentId}` },
       });
       input.value = config.extraArgs;
       input.addEventListener("change", () => {
@@ -390,6 +392,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
     const config = this.plugin.settings.agents[agentId];
     const provider = PROVIDERS.find((p) => p.agentId === agentId)!;
     const fieldRow = body.createDiv({ cls: "ais-field-row" });
+    fieldRow.dataset.testid = `ai-agent-model-field-${agentId}`;
     fieldRow.createEl("label", { cls: "ais-field-label", text: "Model" });
 
     const cached = modelListCache[agentId];
