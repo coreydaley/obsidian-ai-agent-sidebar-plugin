@@ -51,6 +51,82 @@ main().catch(err => {
 }
 
 /**
+ * Write a fake agent script that emits stderr lines then exits 0.
+ */
+export function writeStderrScript(stderrMessages: string[], stdoutChunks: string[] = []): string {
+  const dir = mkdtempSync(join(tmpdir(), "fake-agent-stderr-"));
+  const scriptPath = join(dir, "fake-agent-stderr.mjs");
+
+  const script = `
+const stderrMessages = ${JSON.stringify(stderrMessages)};
+const stdoutChunks = ${JSON.stringify(stdoutChunks)};
+
+async function main() {
+  for (const msg of stderrMessages) {
+    process.stderr.write(msg + '\\n');
+    await new Promise(r => setTimeout(r, 5));
+  }
+  for (const chunk of stdoutChunks) {
+    process.stdout.write(chunk);
+    await new Promise(r => setTimeout(r, 5));
+  }
+  process.exit(0);
+}
+
+main();
+`.trim();
+
+  writeFileSync(scriptPath, script, "utf8");
+  chmodSync(scriptPath, 0o700);
+  return scriptPath;
+}
+
+/**
+ * Write a fake agent script that writes stdout chunks then exits with the given exit code.
+ */
+export function writeExitCodeScript(exitCode: number, stdoutChunks: string[] = []): string {
+  const dir = mkdtempSync(join(tmpdir(), "fake-agent-exit-"));
+  const scriptPath = join(dir, "fake-agent-exit.mjs");
+
+  const script = `
+const exitCode = ${exitCode};
+const stdoutChunks = ${JSON.stringify(stdoutChunks)};
+
+async function main() {
+  for (const chunk of stdoutChunks) {
+    process.stdout.write(chunk);
+    await new Promise(r => setTimeout(r, 5));
+  }
+  process.exit(exitCode);
+}
+
+main();
+`.trim();
+
+  writeFileSync(scriptPath, script, "utf8");
+  chmodSync(scriptPath, 0o700);
+  return scriptPath;
+}
+
+/**
+ * Write a fake agent script that writes process.argv.slice(2) as JSON to stdout.
+ * Used for testing extraArgs/yoloArgs passthrough.
+ */
+export function writeArgCaptureScript(): string {
+  const dir = mkdtempSync(join(tmpdir(), "fake-agent-args-"));
+  const scriptPath = join(dir, "fake-agent-args.mjs");
+
+  const script = `
+process.stdout.write(JSON.stringify(process.argv.slice(2)));
+process.exit(0);
+`.trim();
+
+  writeFileSync(scriptPath, script, "utf8");
+  chmodSync(scriptPath, 0o700);
+  return scriptPath;
+}
+
+/**
  * Write a fake agent script that outputs some text then hangs indefinitely.
  * Used for testing dispose() behaviour.
  */
