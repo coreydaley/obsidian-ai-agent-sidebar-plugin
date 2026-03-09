@@ -8,8 +8,13 @@ on:
 
 jobs:
   unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
+    name: Unit Tests (${{ matrix.os }})
+    # Runs on all three platforms to verify cross-platform compatibility.
+    # Unit and integration tests are Node-only (no Obsidian binary required).
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +33,13 @@ jobs:
         run: npm run test-unit
 
   integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
+    name: Integration Tests (${{ matrix.os }})
+    # Runs on all three platforms to verify cross-platform compatibility.
+    # Integration tests spawn real Node subprocesses; no Obsidian binary required.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +56,9 @@ jobs:
 
   e2e-tests:
     name: E2E Tests
+    # E2E tests require Obsidian's Linux AppImage and a virtual framebuffer.
+    # Windows E2E is a known gap — see SPRINT-010 Known Gaps for the path forward.
+    # macOS E2E is not run in CI to avoid interfering with the runner's Obsidian install.
     runs-on: ubuntu-latest
 
     steps:
