@@ -5,7 +5,7 @@ HOT_RELOAD_DIR   := $(VAULT_DIR)/.obsidian/plugins/hot-reload
 HOT_RELOAD_VER   := 0.3.0
 HOT_RELOAD_BASE  := https://github.com/pjeby/hot-reload/releases/download/$(HOT_RELOAD_VER)
 
-.PHONY: dev vault-setup build install clean test test-unit test-integration test-all test-e2e lint help
+.PHONY: dev vault-setup build install clean test test-unit test-integration test-e2e test-e2e-live lint help
 
 dev: vault-setup
 	@echo "Starting watcher — changes to src/ will sync to $(VAULT_PLUGIN_DIR) automatically."
@@ -28,11 +28,7 @@ vault-setup: clean build
 build:
 	npm run build
 
-test:
-	@echo "Available test targets:"
-	@echo "  make test-unit         Run unit tests"
-	@echo "  make test-integration  Run integration tests"
-	@echo "  make test-all          Run unit, integration, and e2e tests"
+test: test-unit test-integration test-e2e
 
 test-unit:
 	npm test
@@ -41,10 +37,11 @@ test-unit:
 test-integration:
 	npm run test-integration
 
-test-all: test-unit test-integration test-e2e
-
 test-e2e: build
 	npm run test-e2e
+
+test-e2e-live: build
+	npm run test-e2e-live
 
 lint:
 	npm run lint
@@ -59,10 +56,11 @@ help:
 	@echo "Targets:"
 	@echo "  dev               Build and start watch mode with hot-reload vault"
 	@echo "  build             Type-check and bundle (production)"
-	@echo "  test              Show available test targets"
+	@echo "  test              Run unit, integration, and e2e tests"
 	@echo "  test-unit         Run unit tests"
 	@echo "  test-integration  Run integration tests"
-	@echo "  test-all          Run unit, integration, and e2e tests"
+	@echo "  test-e2e          Run e2e tests (mock servers)"
+	@echo "  test-e2e-live     Run live E2E tests (requires real CLIs + API keys, NOT part of make test)"
 	@echo "  lint              Lint source files"
 	@echo "  vault-setup       Create sample Obsidian vault with plugin installed"
 	@echo "  clean             Remove build output and vault directory"
