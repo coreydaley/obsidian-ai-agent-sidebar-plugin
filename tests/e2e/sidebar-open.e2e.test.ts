@@ -4,36 +4,23 @@ import * as path from "path";
 import type { Page } from "playwright";
 import { findObsidianBinary } from "./helpers/obsidianBinary";
 import { createTestVault, type TestVault } from "./helpers/vaultFactory";
-import { launchObsidian, quitObsidian, ObsidianLaunchError, type ObsidianInstance } from "./helpers/electronHarness";
+import { launchObsidian, quitObsidian, type ObsidianInstance } from "./helpers/electronHarness";
 import {
   SIDEBAR_ROOT,
   EMPTY_STATE,
   RIBBON_OPEN_SIDEBAR,
 } from "./helpers/selectors";
 
-describe("sidebar-open", () => {
-  const binary = findObsidianBinary();
+const binary = findObsidianBinary();
+
+describe.skipIf(!binary)("sidebar-open", () => {
   let vault: TestVault;
   let app: ObsidianInstance;
   let page: Page;
 
-  beforeAll(async (ctx) => {
-    if (!binary) {
-      ctx.skip();
-      return;
-    }
-
+  beforeAll(async () => {
     vault = await createTestVault();
-
-    try {
-      ({ app, page } = await launchObsidian(binary, vault.vaultPath));
-    } catch (err) {
-      if (err instanceof ObsidianLaunchError) {
-        ctx.skip();
-        return;
-      }
-      throw err;
-    }
+    ({ app, page } = await launchObsidian(binary!, vault.vaultPath));
   });
 
   afterEach(async (ctx) => {

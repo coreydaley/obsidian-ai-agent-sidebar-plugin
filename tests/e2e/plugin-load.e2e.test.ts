@@ -9,30 +9,18 @@ import { WORKSPACE_CONTAINER } from "./helpers/selectors";
 
 const PLUGIN_ID = "ai-agent-sidebar";
 
-describe("plugin-load", () => {
-  const binary = findObsidianBinary();
+const binary = findObsidianBinary();
+
+describe.skipIf(!binary)("plugin-load", () => {
   let vault: TestVault;
   let app: ObsidianInstance;
   let page: Page;
   const consoleErrors: string[] = [];
 
-  beforeAll(async (ctx) => {
-    if (!binary) {
-      ctx.skip();
-      return;
-    }
-
+  beforeAll(async () => {
     vault = await createTestVault();
 
-    try {
-      ({ app, page } = await launchObsidian(binary, vault.vaultPath));
-    } catch (err) {
-      if (err instanceof ObsidianLaunchError) {
-        ctx.skip();
-        return;
-      }
-      throw err;
-    }
+    ({ app, page } = await launchObsidian(binary!, vault.vaultPath));
 
     page.on("console", (msg) => {
       if (msg.type() === "error") {

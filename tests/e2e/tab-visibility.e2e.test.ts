@@ -18,7 +18,7 @@ import * as path from "path";
 import type { Page } from "playwright";
 import { findObsidianBinary } from "./helpers/obsidianBinary";
 import { createTestVault, type TestVault } from "./helpers/vaultFactory";
-import { launchObsidian, quitObsidian, ObsidianLaunchError, type ObsidianInstance } from "./helpers/electronHarness";
+import { launchObsidian, quitObsidian, type ObsidianInstance } from "./helpers/electronHarness";
 import {
   SIDEBAR_ROOT,
   EMPTY_STATE,
@@ -98,18 +98,14 @@ const TOGGLE_TESTABLE_AGENTS = [
 
 // ─── Suite ───────────────────────────────────────────────────────────────────
 
-describe("tab-visibility", () => {
-  const binary = findObsidianBinary();
+const binary = findObsidianBinary();
+
+describe.skipIf(!binary)("tab-visibility", () => {
   let vault: TestVault;
   let app: ObsidianInstance;
   let page: Page;
 
-  beforeAll(async (ctx) => {
-    if (!binary) {
-      ctx.skip();
-      return;
-    }
-
+  beforeAll(async () => {
     // Pre-seed all testable agents as enabled with fake API keys.
     // No real requests will be made; we only verify tab presence.
     vault = await createTestVault({
@@ -119,15 +115,7 @@ describe("tab-visibility", () => {
       "openai-compat": { enabled: true, accessMode: "api", openaiCompatApiKey: "fake-key", selectedModel: "mock-model" },
     });
 
-    try {
-      ({ app, page } = await launchObsidian(binary, vault.vaultPath));
-    } catch (err) {
-      if (err instanceof ObsidianLaunchError) {
-        ctx.skip();
-        return;
-      }
-      throw err;
-    }
+    ({ app, page } = await launchObsidian(binary!, vault.vaultPath));
 
     await openSidebar(page);
   });

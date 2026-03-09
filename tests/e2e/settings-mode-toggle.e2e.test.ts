@@ -39,7 +39,7 @@ import * as path from "path";
 import type { Page } from "playwright";
 import { findObsidianBinary } from "./helpers/obsidianBinary";
 import { createTestVault, type TestVault } from "./helpers/vaultFactory";
-import { launchObsidian, quitObsidian, ObsidianLaunchError, type ObsidianInstance } from "./helpers/electronHarness";
+import { launchObsidian, quitObsidian, type ObsidianInstance } from "./helpers/electronHarness";
 import {
   SETTINGS_SECTION_ANTHROPIC,
   SETTINGS_SECTION_OPENAI,
@@ -71,18 +71,14 @@ function modeFlipCheckbox(page: Page, modeFlipSelector: string) {
 
 // ─── Suite ───────────────────────────────────────────────────────────────────
 
-describe("settings-mode-toggle", () => {
-  const binary = findObsidianBinary();
+const binary = findObsidianBinary();
+
+describe.skipIf(!binary)("settings-mode-toggle", () => {
   let vault: TestVault;
   let app: ObsidianInstance;
   let page: Page;
 
-  beforeAll(async (ctx) => {
-    if (!binary) {
-      ctx.skip();
-      return;
-    }
-
+  beforeAll(async () => {
     // Pre-seed all tested agents as enabled.  Dual-mode agents start in CLI
     // mode; the apiKey satisfies canEnable without a real binary or env-var key.
     vault = await createTestVault({
@@ -93,15 +89,7 @@ describe("settings-mode-toggle", () => {
       copilot: { enabled: true, accessMode: "cli", apiKey: "fake-key" },
     });
 
-    try {
-      ({ app, page } = await launchObsidian(binary, vault.vaultPath, { keepSettingsOpen: true }));
-    } catch (err) {
-      if (err instanceof ObsidianLaunchError) {
-        ctx.skip();
-        return;
-      }
-      throw err;
-    }
+    ({ app, page } = await launchObsidian(binary!, vault.vaultPath, { keepSettingsOpen: true }));
 
     // Navigate to plugin settings tab. Wait for DOM attachment first (the tab may
     // still be registering via onload()), scroll to reveal it, then click.

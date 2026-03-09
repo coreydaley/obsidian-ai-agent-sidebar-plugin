@@ -66,19 +66,15 @@ async function openSidebar(page: Page): Promise<void> {
 // Anthropic (claude) — API mode with mock server
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("chat-interaction: anthropic", () => {
-  const binary = findObsidianBinary();
+const binary = findObsidianBinary();
+
+describe.skipIf(!binary)("chat-interaction: anthropic", () => {
   let mockServer: MockServer;
   let vault: TestVault;
   let app: ObsidianInstance;
   let page: Page;
 
-  beforeAll(async (ctx) => {
-    if (!binary) {
-      ctx.skip();
-      return;
-    }
-
+  beforeAll(async () => {
     // Start mock server before Obsidian launches
     mockServer = await startMockApiServer({ response: MOCK_RESPONSE });
 
@@ -93,13 +89,9 @@ describe("chat-interaction: anthropic", () => {
     });
 
     try {
-      ({ app, page } = await launchObsidian(binary, vault.vaultPath));
+      ({ app, page } = await launchObsidian(binary!, vault.vaultPath));
     } catch (err) {
       await mockServer.close().catch(() => undefined);
-      if (err instanceof ObsidianLaunchError) {
-        ctx.skip();
-        return;
-      }
       throw err;
     }
 
@@ -153,19 +145,13 @@ describe("chat-interaction: anthropic", () => {
 // OpenAI (codex) — API mode with mock server
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("chat-interaction: openai", () => {
-  const binary = findObsidianBinary();
+describe.skipIf(!binary)("chat-interaction: openai", () => {
   let mockServer: MockServer;
   let vault: TestVault;
   let app: ObsidianInstance;
   let page: Page;
 
-  beforeAll(async (ctx) => {
-    if (!binary) {
-      ctx.skip();
-      return;
-    }
-
+  beforeAll(async () => {
     // Start mock server before Obsidian launches
     mockServer = await startMockApiServer({ response: MOCK_RESPONSE });
 
@@ -182,13 +168,9 @@ describe("chat-interaction: openai", () => {
     });
 
     try {
-      ({ app, page } = await launchObsidian(binary, vault.vaultPath));
+      ({ app, page } = await launchObsidian(binary!, vault.vaultPath));
     } catch (err) {
       await mockServer.close().catch(() => undefined);
-      if (err instanceof ObsidianLaunchError) {
-        ctx.skip();
-        return;
-      }
       throw err;
     }
 
@@ -242,19 +224,13 @@ describe("chat-interaction: openai", () => {
 // OpenAI Compatible (openai-compat) — API mode with mock server
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("chat-interaction: openai-compat", () => {
-  const binary = findObsidianBinary();
+describe.skipIf(!binary)("chat-interaction: openai-compat", () => {
   let mockServer: MockServer;
   let vault: TestVault;
   let app: ObsidianInstance;
   let page: Page;
 
-  beforeAll(async (ctx) => {
-    if (!binary) {
-      ctx.skip();
-      return;
-    }
-
+  beforeAll(async () => {
     mockServer = await startMockApiServer({ response: MOCK_RESPONSE });
 
     vault = await createTestVault({
@@ -269,13 +245,9 @@ describe("chat-interaction: openai-compat", () => {
     });
 
     try {
-      ({ app, page } = await launchObsidian(binary, vault.vaultPath));
+      ({ app, page } = await launchObsidian(binary!, vault.vaultPath));
     } catch (err) {
       await mockServer.close().catch(() => undefined);
-      if (err instanceof ObsidianLaunchError) {
-        ctx.skip();
-        return;
-      }
       throw err;
     }
 
@@ -331,19 +303,13 @@ describe("chat-interaction: openai-compat", () => {
 // The SDK parses SSE lines matching /^data\: (.*)(?:\n\n|\r\r|\r\n\r\n)/
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("chat-interaction: gemini", () => {
-  const binary = findObsidianBinary();
+describe.skipIf(!binary)("chat-interaction: gemini", () => {
   let mockServer: MockServer;
   let vault: TestVault;
   let app: ObsidianInstance;
   let page: Page;
 
-  beforeAll(async (ctx) => {
-    if (!binary) {
-      ctx.skip();
-      return;
-    }
-
+  beforeAll(async () => {
     mockServer = await startMockApiServer({ response: MOCK_RESPONSE });
 
     vault = await createTestVault({
@@ -357,13 +323,9 @@ describe("chat-interaction: gemini", () => {
     });
 
     try {
-      ({ app, page } = await launchObsidian(binary, vault.vaultPath));
+      ({ app, page } = await launchObsidian(binary!, vault.vaultPath));
     } catch (err) {
       await mockServer.close().catch(() => undefined);
-      if (err instanceof ObsidianLaunchError) {
-        ctx.skip();
-        return;
-      }
       throw err;
     }
 
