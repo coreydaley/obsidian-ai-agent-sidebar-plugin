@@ -9,8 +9,10 @@ npm install
 npm run build            # type-check (tsc --noEmit) then esbuild production bundle
 npm run dev              # esbuild watch mode (no type-check)
 npm test                 # unit tests (vitest)
+npm run test-unit        # JSDOM unit tests for AgentChatTab (vitest.unit.config.ts)
 npm run test-integration # integration tests (vitest, real CLI/env, ~15 s timeout)
 npm run lint             # eslint src/
+make test-unit           # runs npm test + npm run test-unit
 make test-integration    # equivalent make target
 ```
 
@@ -72,6 +74,12 @@ The runners intercept these blocks mid-stream (handling chunk-boundary splits), 
 ### API key resolution
 
 API keys are read from shell environment at run time via `resolveShellEnv()` (`src/shellEnv.ts`), not from Obsidian's data store. Each provider checks a plugin-namespaced var first (`OBSIDIAN_AI_AGENT_SIDEBAR_*`) then standard fallbacks (`ANTHROPIC_API_KEY`, etc.).
+
+### Unit tests (`tests/unit/`)
+
+JSDOM-based tests for UI components (AgentChatTab). Run with `npm run test-unit`. Shared helpers live in `tests/unit/helpers/`:
+
+- `obsidianDomPolyfill.ts` — polyfills `HTMLElement.prototype` with Obsidian's DOM extensions (`createEl`, `createDiv`, `createSpan`, `addClass`, `removeClass`, `empty`) for use in JSDOM
 
 ### Integration tests (`tests/integration/`)
 

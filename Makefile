@@ -36,6 +36,7 @@ test:
 
 test-unit:
 	npm test
+	npm run test-unit
 
 test-integration:
 	npm run test-integration
