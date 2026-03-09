@@ -82,7 +82,8 @@ export class AgentSidebarView extends ItemView {
         if (!detection) return null;
         const config = this.plugin.settings.agents[detection.id];
         if (!config.enabled) return null;
-        if (!detection.isInstalled && !detection.hasApiKey) return null;
+        const hasSettingsApiKey = Boolean(config.apiKey?.trim() ?? config.openaiCompatApiKey?.trim());
+        if (!detection.isInstalled && !detection.hasApiKey && !hasSettingsApiKey) return null;
         return detection;
       })
       .filter((r): r is AgentDetectionResult => r !== null);
@@ -91,6 +92,7 @@ export class AgentSidebarView extends ItemView {
   private async addAgentTab(detection: AgentDetectionResult): Promise<void> {
     const tabBtn = this.tabBar.createEl("button", { cls: "ai-sidebar-tab-btn" });
     tabBtn.title = detection.name;
+    tabBtn.dataset.testid = `ai-agent-tab-${detection.id}`;
     const provider = PROVIDERS.find(p => p.agentId === detection.id);
     if (provider) tabBtn.dataset.provider = provider.id;
     appendAgentIcon(tabBtn, detection.id);

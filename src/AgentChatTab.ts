@@ -46,12 +46,13 @@ export class AgentChatTab {
     const inputArea = this.containerEl.createDiv({ cls: "ai-sidebar-input-area" });
     this.inputEl = inputArea.createEl("textarea", {
       cls: "ai-sidebar-input",
-      attr: { placeholder: `Message ${this.detection.name}…`, rows: "3" },
+      attr: { placeholder: `Message ${this.detection.name}…`, rows: "3", "data-testid": "ai-agent-chat-input" },
     });
 
     this.sendBtn = inputArea.createEl("button", {
       text: "Send",
       cls: "ai-sidebar-send-btn",
+      attr: { "data-testid": "ai-agent-chat-submit" },
     });
 
     this.inputEl.addEventListener("keydown", (e) => {
@@ -76,8 +77,10 @@ export class AgentChatTab {
   }
 
   private renderMessage(msg: ChatMessage): HTMLElement {
+    const testId = msg.role === "user" ? "ai-agent-chat-message-user" : "ai-agent-chat-message-assistant";
     const msgEl = this.messagesEl.createDiv({
       cls: `ai-sidebar-message ai-sidebar-message--${msg.role}`,
+      attr: { "data-testid": testId },
     });
 
     const headerEl = msgEl.createDiv({ cls: "ai-sidebar-message-header" });
@@ -194,6 +197,7 @@ export class AgentChatTab {
 
     const msgEl = this.messagesEl.createDiv({
       cls: "ai-sidebar-message ai-sidebar-message--assistant ai-sidebar-message--streaming",
+      attr: { "data-testid": "ai-agent-chat-message-assistant" },
     });
 
     const headerEl = msgEl.createDiv({ cls: "ai-sidebar-message-header" });
@@ -243,7 +247,7 @@ export class AgentChatTab {
   }
 
   private renderError(message: string): void {
-    const errorEl = this.messagesEl.createDiv({ cls: "ai-sidebar-error" });
+    const errorEl = this.messagesEl.createDiv({ cls: "ai-sidebar-error", attr: { "data-testid": "ai-agent-chat-error" } });
     errorEl.createSpan({ text: `Error: ${message}` });
 
     const retryBtn = errorEl.createEl("button", {

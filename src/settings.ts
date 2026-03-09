@@ -353,7 +353,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
     urlRow.createEl("label", { cls: "ais-field-label", text: "Base URL" });
     const urlInput = urlRow.createEl("input", {
       cls: "ais-field-input",
-      attr: { type: "text", placeholder: "http://localhost:11434/v1" },
+      attr: { type: "text", placeholder: "http://localhost:11434/v1", "data-testid": "ai-agent-openai-compat-base-url" },
     });
     urlInput.value = config.openaiCompatBaseUrl ?? "";
     urlInput.addEventListener("change", () => {
@@ -365,7 +365,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
     keyRow.createEl("label", { cls: "ais-field-label", text: "API Key" });
     const keyInput = keyRow.createEl("input", {
       cls: "ais-field-input",
-      attr: { type: "password", placeholder: "optional" },
+      attr: { type: "password", placeholder: "optional", "data-testid": "ai-agent-openai-compat-api-key" },
     });
     keyInput.value = config.openaiCompatApiKey ?? "";
     keyInput.addEventListener("change", () => {
@@ -377,7 +377,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
     modelRow.createEl("label", { cls: "ais-field-label", text: "Model" });
     const modelInput = modelRow.createEl("input", {
       cls: "ais-field-input",
-      attr: { type: "text", placeholder: "llama3.2" },
+      attr: { type: "text", placeholder: "llama3.2", "data-testid": "ai-agent-openai-compat-model" },
     });
     modelInput.value = config.selectedModel ?? "";
     modelInput.addEventListener("change", () => {
