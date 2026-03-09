@@ -1,15 +1,17 @@
 # AI Agent Sidebar for Obsidian
 
-An Obsidian plugin that adds a sidebar where you can chat with AI agents (Claude Code, OpenAI Codex, Google Gemini, GitHub Copilot) and have them read, create, edit, rename, and delete files in your vault. Agents can be used via their CLI tools or directly through their APIs.
+An Obsidian plugin that adds a sidebar where you can chat with AI agents (Claude Code, OpenAI Codex, Google Gemini, GitHub Copilot, and any OpenAI-compatible endpoint) and have them read, create, edit, rename, and delete files in your vault. Agents can be used via their CLI tools or directly through their APIs.
 
 ## Features
 
 - **Multi-agent tabs**: Switch between enabled agents without losing conversation history
 - **CLI and API modes**: Use agents via their installed CLI tools or directly via API key
+- **OpenAI-compatible endpoint support**: Connect to any OpenAI-compatible server (Ollama, vLLM, LM Studio, etc.)
 - **Vault CRUD**: Agents can read, create, edit, rename, and delete your notes
 - **Streaming responses**: See responses token-by-token as they arrive
 - **Auto-context**: The currently open note is automatically shared with the agent
 - **Model selection**: In API mode, fetch available models and select one from the settings page
+- **Persist conversations**: Optionally save and restore chat history across Obsidian restarts
 - **Debug mode**: Optionally show raw CLI output and API request details in the chat panel
 
 ## Supported Agents
@@ -32,6 +34,7 @@ At least one of the following must be installed and authenticated:
 - **OpenAI Codex CLI** — [github.com/openai/codex](https://github.com/openai/codex)
 - **GitHub Copilot CLI** — [docs.github.com/en/copilot/github-copilot-in-the-cli](https://docs.github.com/en/copilot/github-copilot-in-the-cli)
 - **A Google Gemini API key** — Gemini is API-only; no CLI is required
+- **An OpenAI-compatible server** — any server that implements the OpenAI chat completions API (e.g. Ollama, vLLM, LM Studio)
 
 ## Installation
 
@@ -47,11 +50,11 @@ At least one of the following must be installed and authenticated:
 
 ## API Keys
 
-API mode is available for Claude, Codex, and Gemini. The plugin reads API keys from your shell environment — set them in your shell profile (`.zshrc`, `.bash_profile`, etc.) and restart Obsidian.
+API mode is available for Claude, Codex, Gemini, and OpenAI-compatible servers. The plugin reads API keys from your shell environment — set them in your shell profile (`.zshrc`, `.bash_profile`, etc.) and restart Obsidian.
+
+For each provider the plugin checks a plugin-specific variable first (`OBSIDIAN_AI_AGENT_SIDEBAR_*`), then falls back to the standard variable used by that provider's own tools. The plugin-specific variables let you create **dedicated API keys** for this plugin so you can track usage from Obsidian separately from other tools (CLIs, scripts, etc.) that share the same provider account.
 
 ### Claude (Anthropic)
-
-The plugin checks these environment variables in order:
 
 ```text
 OBSIDIAN_AI_AGENT_SIDEBAR_ANTHROPIC_API_KEY
@@ -83,6 +86,17 @@ Get a key at [aistudio.google.com](https://aistudio.google.com).
 
 Copilot is CLI-only and uses its own authentication (`gh auth login`). No API key is needed.
 
+### OpenAI Compatible
+
+OpenAI-compatible servers that require authentication (e.g. a hosted vLLM instance) read from:
+
+```text
+OBSIDIAN_AI_AGENT_SIDEBAR_OPENAI_COMPAT_API_KEY
+OPENAI_COMPAT_API_KEY
+```
+
+Local servers like Ollama do not require an API key — leave the field blank or set any non-empty placeholder.
+
 ## Configuration
 
 Open **Settings → AI Agent Sidebar** to configure each provider.
@@ -103,6 +117,18 @@ When enabled, the following flags are prepended to every CLI invocation, disabli
 | Claude Code | `--dangerously-skip-permissions` |
 | OpenAI Codex | `--full-auto` |
 | GitHub Copilot | `--allow-all` |
+
+### OpenAI-Compatible Agent
+
+The OpenAI-compatible agent connects to any server that implements the OpenAI chat completions API. Configure it in Settings:
+
+| Field | Description |
+| --- | --- |
+| **Base URL** | The root URL of your server's API, e.g. `http://localhost:11434/v1` for Ollama |
+| **Model** | The model name to use, e.g. `llama3.2`, `qwen2.5:1.5b`, `mistral` |
+| **API Key** | Optional — required only if your server enforces authentication |
+
+The plugin does not fetch a model list for OpenAI-compatible endpoints — enter the model name directly.
 
 ### Default Models (API mode)
 
@@ -156,6 +182,7 @@ This plugin contacts external services. All network requests are initiated by us
 | Anthropic API | `api.anthropic.com` | API mode only | Send messages to Claude and list available models |
 | OpenAI API | `api.openai.com` | API mode only | Send messages to Codex/GPT and list available models |
 | Google Generative AI API | `generativelanguage.googleapis.com` | API mode only | Send messages to Gemini and list available models |
+| OpenAI-compatible server | Configured base URL | API mode only | Send messages to the local or hosted endpoint |
 | Claude Code CLI | Anthropic servers (via `claude` binary) | CLI mode only | The `claude` CLI handles its own network calls to Anthropic |
 | OpenAI Codex CLI | OpenAI servers (via `codex` binary) | CLI mode only | The `codex` CLI handles its own network calls to OpenAI |
 | GitHub Copilot CLI | GitHub servers (via `copilot` binary) | CLI mode only | The `copilot` CLI handles its own network calls to GitHub |
@@ -165,6 +192,8 @@ In API mode the plugin communicates directly with provider APIs using your API k
 ## Privacy
 
 When you use this plugin, the content of your open note and any files the agent reads are sent to the AI provider's servers. **Do not use this plugin with notes containing confidential, sensitive, or personally identifiable information you do not want transmitted to third-party AI services.**
+
+When using an OpenAI-compatible endpoint pointed at a local server (e.g. Ollama), your content stays on your machine.
 
 ## Building
 
