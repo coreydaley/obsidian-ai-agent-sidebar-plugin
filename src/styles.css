@@ -804,3 +804,55 @@
   color: var(--text-faint);
   margin-top: 1px;
 }
+
+/* ── Footer / Help & Community ──────────────────────────────── */
+.ais-footer-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.ais-footer-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ais-footer-link:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+  text-decoration: none;
+}
+.ais-footer-link-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ais-footer-link-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.ais-footer-link:hover .ais-footer-link-icon {
+  color: var(--interactive-accent);
+}
+.ais-footer-link-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-normal);
+}
+.ais-footer-link-desc {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 1px;
+}
