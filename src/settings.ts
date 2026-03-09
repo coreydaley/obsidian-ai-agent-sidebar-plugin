@@ -529,7 +529,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
   // ── Footer ───────────────────────────────────────────────────────────────────
 
   private renderFooter(root: HTMLElement): void {
-    root.createEl("span", { text: "Help & Community", cls: "ais-section-title ais-section-title--lower" });
+    root.createEl("span", { text: "Help & community", cls: "ais-section-title ais-section-title--lower" });
 
     const REPO = "https://github.com/coreydaley/obsidian-ai-agent-sidebar-plugin";
 
