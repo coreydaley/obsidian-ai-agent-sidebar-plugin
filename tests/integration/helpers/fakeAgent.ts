@@ -46,7 +46,7 @@ main().catch(err => {
 `.trim();
 
   writeFileSync(scriptPath, script, "utf8");
-  chmodSync(scriptPath, 0o700);
+  if (process.platform !== "win32") chmodSync(scriptPath, 0o700);
   return scriptPath;
 }
 
@@ -77,7 +77,7 @@ main();
 `.trim();
 
   writeFileSync(scriptPath, script, "utf8");
-  chmodSync(scriptPath, 0o700);
+  if (process.platform !== "win32") chmodSync(scriptPath, 0o700);
   return scriptPath;
 }
 
@@ -104,7 +104,7 @@ main();
 `.trim();
 
   writeFileSync(scriptPath, script, "utf8");
-  chmodSync(scriptPath, 0o700);
+  if (process.platform !== "win32") chmodSync(scriptPath, 0o700);
   return scriptPath;
 }
 
@@ -122,7 +122,7 @@ process.exit(0);
 `.trim();
 
   writeFileSync(scriptPath, script, "utf8");
-  chmodSync(scriptPath, 0o700);
+  if (process.platform !== "win32") chmodSync(scriptPath, 0o700);
   return scriptPath;
 }
 
@@ -150,6 +150,6 @@ main();
 `.trim();
 
   writeFileSync(scriptPath, script, "utf8");
-  chmodSync(scriptPath, 0o700);
+  if (process.platform !== "win32") chmodSync(scriptPath, 0o700);
   return scriptPath;
 }

@@ -50,7 +50,8 @@ export function shouldSkipSuite(type: "cli" | "api", agent: string): boolean {
 // cmd must be a trusted constant — never pass user-controlled input
 export function isBinaryInstalled(cmd: string): boolean {
   try {
-    execSync(`which ${cmd}`, { stdio: ["pipe", "pipe", "pipe"] });
+    const findCmd = process.platform === "win32" ? `where ${cmd}` : `which ${cmd}`;
+    execSync(findCmd, { stdio: ["pipe", "pipe", "pipe"] });
     return true;
   } catch {
     return false;

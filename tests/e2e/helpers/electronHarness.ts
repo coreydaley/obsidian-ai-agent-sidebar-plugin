@@ -122,6 +122,12 @@ function unregisterTestVault(vaultId: string, originalContent: string): void {
 
 function isObsidianRunning(): boolean {
   try {
+    if (process.platform === "win32") {
+      // /FO CSV produces machine-readable output unaffected by Windows display locale.
+      // Obsidian.exe is hardcoded — no user input interpolation.
+      const out = execSync('tasklist /FI "IMAGENAME eq Obsidian.exe" /NH /FO CSV', { stdio: ["pipe", "pipe", "pipe"] }).toString();
+      return out.includes("Obsidian.exe");
+    }
     // macOS process name is "Obsidian" (capitalised); Linux is "obsidian" (lowercase).
     const cmd = process.platform === "darwin" ? "pgrep -x Obsidian" : "pgrep -x obsidian";
     const result = execSync(cmd, { stdio: ["pipe", "pipe", "pipe"] }).toString().trim();
@@ -230,7 +236,8 @@ export async function launchObsidian(
 ): Promise<{ app: ObsidianInstance; page: Page }> {
   if (process.platform !== "darwin" && process.platform !== "linux") {
     throw new ObsidianLaunchError(
-      `Unsupported platform: ${process.platform}. E2E tests require macOS or Linux.`
+      `Unsupported platform: ${process.platform}. E2E tests require macOS or Linux. ` +
+      "Windows E2E is not yet supported — see SPRINT-010 Known Gaps for the path forward."
     );
   }
 
@@ -289,6 +296,9 @@ export async function launchObsidian(
       // Quit the Obsidian GUI process and wait for it to fully exit
       if (process.platform === "darwin") {
         try { execSync("osascript -e 'quit app \"Obsidian\"'", { stdio: "ignore" }); } catch { /* ignore */ }
+      } else if (process.platform === "win32") {
+        // /T terminates child processes; /F forces termination. Obsidian.exe is hardcoded.
+        try { execSync("taskkill /F /IM Obsidian.exe /T", { stdio: "ignore" }); } catch { /* ignore */ }
       } else {
         try { execSync("pkill -x obsidian", { stdio: "ignore" }); } catch { /* ignore */ }
       }
