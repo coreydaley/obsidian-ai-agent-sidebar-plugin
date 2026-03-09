@@ -138,7 +138,7 @@ export class AgentSidebarSettingTab extends PluginSettingTab {
       const isInstalled = detection?.isInstalled ?? false;
       const hasApiKey   = detection?.hasApiKey  ?? false;
       const config      = this.plugin.settings.agents[agentId];
-      const canEnable   = isInstalled || hasApiKey || Boolean(config.apiKey?.trim());
+      const canEnable   = isInstalled || hasApiKey || Boolean(config.apiKey?.trim()) || provider.apiKeyOptional === true;
 
       if (!isChecking) {
         let mode = config.accessMode;

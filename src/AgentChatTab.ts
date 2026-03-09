@@ -31,6 +31,11 @@ export class AgentChatTab {
     this.bindRunnerEvents();
   }
 
+  private get modeLabel(): string {
+    const mode = this.plugin.settings.agents[this.detection.id]?.accessMode ?? "cli";
+    return mode === "api" ? "API" : "CLI";
+  }
+
   private render(): void {
     this.containerEl.empty();
     this.containerEl.addClass("ai-sidebar-chat");
@@ -85,7 +90,7 @@ export class AgentChatTab {
 
     const headerEl = msgEl.createDiv({ cls: "ai-sidebar-message-header" });
     headerEl.createSpan({
-      text: msg.role === "user" ? "You" : this.detection.name,
+      text: msg.role === "user" ? "You" : `${this.detection.name} (${this.modeLabel})`,
       cls: "ai-sidebar-message-author",
     });
     headerEl.createSpan({
@@ -201,7 +206,7 @@ export class AgentChatTab {
     });
 
     const headerEl = msgEl.createDiv({ cls: "ai-sidebar-message-header" });
-    headerEl.createSpan({ text: this.detection.name, cls: "ai-sidebar-message-author" });
+    headerEl.createSpan({ text: `${this.detection.name} (${this.modeLabel})`, cls: "ai-sidebar-message-author" });
     headerEl.createSpan({
       text: new Date().toLocaleTimeString(),
       cls: "ai-sidebar-message-time",
