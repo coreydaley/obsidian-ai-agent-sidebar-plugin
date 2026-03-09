@@ -32,7 +32,7 @@ test:
 	@echo "Available test targets:"
 	@echo "  make test-unit         Run unit tests"
 	@echo "  make test-integration  Run integration tests"
-	@echo "  make test-all          Run unit and integration tests"
+	@echo "  make test-all          Run unit, integration, and e2e tests"
 
 test-unit:
 	npm test
@@ -40,7 +40,7 @@ test-unit:
 test-integration:
 	npm run test-integration
 
-test-all: test-unit test-integration
+test-all: test-unit test-integration test-e2e
 
 test-e2e: build
 	npm run test-e2e
@@ -61,7 +61,7 @@ help:
 	@echo "  test              Show available test targets"
 	@echo "  test-unit         Run unit tests"
 	@echo "  test-integration  Run integration tests"
-	@echo "  test-all          Run unit and integration tests"
+	@echo "  test-all          Run unit, integration, and e2e tests"
 	@echo "  lint              Lint source files"
 	@echo "  vault-setup       Create sample Obsidian vault with plugin installed"
 	@echo "  clean             Remove build output and vault directory"
