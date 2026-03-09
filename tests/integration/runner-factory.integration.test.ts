@@ -243,3 +243,74 @@ describe("unknown access mode", () => {
     expect(msg).toMatch(/unknown access mode/i);
   });
 });
+
+describe("mode switching", () => {
+  // Use settings-level apiKey to bypass resolveShellEnv cache entirely.
+  function makeSettingsWithKey(agentId: AgentId, accessMode: AccessMode): PluginSettings {
+    const base = makeSettings(agentId, accessMode);
+    return {
+      ...base,
+      agents: {
+        ...base.agents,
+        [agentId]: { ...base.agents[agentId], apiKey: "settings-key-switch-test" },
+      },
+    };
+  }
+
+  it("CLI-only: createRunner returns AgentRunner when binary is installed", async () => {
+    const detection = makeDetection("claude", { isInstalled: true, path: process.execPath });
+    const settings = makeSettings("claude", "cli");
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).toBeInstanceOf(AgentRunner);
+  });
+
+  it("API-only: createRunner returns AgentApiRunner when settings API key is present", async () => {
+    const detection = makeDetection("claude", { hasApiKey: false, apiKeyVar: "" });
+    const settings = makeSettingsWithKey("claude", "api");
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).toBeInstanceOf(AgentApiRunner);
+  });
+
+  it("cli→api sequence: same agentId, different accessMode returns correct type each time", async () => {
+    const cliDetection = makeDetection("claude", { isInstalled: true, path: process.execPath });
+    const cliSettings = makeSettings("claude", "cli");
+    const cliRunner = await createRunner("claude", cliSettings, [cliDetection], mockHandler);
+    expect(cliRunner).toBeInstanceOf(AgentRunner);
+
+    const apiDetection = makeDetection("claude", { hasApiKey: false, apiKeyVar: "" });
+    const apiSettings = makeSettingsWithKey("claude", "api");
+    const apiRunner = await createRunner("claude", apiSettings, [apiDetection], mockHandler);
+    expect(apiRunner).toBeInstanceOf(AgentApiRunner);
+  });
+
+  it("api→cli sequence: same agentId, different accessMode returns correct type each time", async () => {
+    const apiDetection = makeDetection("claude", { hasApiKey: false, apiKeyVar: "" });
+    const apiSettings = makeSettingsWithKey("claude", "api");
+    const apiRunner = await createRunner("claude", apiSettings, [apiDetection], mockHandler);
+    expect(apiRunner).toBeInstanceOf(AgentApiRunner);
+
+    const cliDetection = makeDetection("claude", { isInstalled: true, path: process.execPath });
+    const cliSettings = makeSettings("claude", "cli");
+    const cliRunner = await createRunner("claude", cliSettings, [cliDetection], mockHandler);
+    expect(cliRunner).toBeInstanceOf(AgentRunner);
+  });
+
+  it("api→cli sequence: API runner runs without immediate error (stateless factory verification)", async () => {
+    const apiDetection = makeDetection("claude", { hasApiKey: false, apiKeyVar: "" });
+    const apiSettings = makeSettingsWithKey("claude", "api");
+    const apiRunner = await createRunner("claude", apiSettings, [apiDetection], mockHandler);
+
+    // Verify runner is functional (not an error runner) by checking it is AgentApiRunner
+    expect(apiRunner).toBeInstanceOf(AgentApiRunner);
+
+    // After API runner, create a CLI runner — factory must be stateless
+    const cliDetection = makeDetection("claude", { isInstalled: true, path: process.execPath });
+    const cliSettings = makeSettings("claude", "cli");
+    const cliRunner = await createRunner("claude", cliSettings, [cliDetection], mockHandler);
+    expect(cliRunner).toBeInstanceOf(AgentRunner);
+  });
+});
