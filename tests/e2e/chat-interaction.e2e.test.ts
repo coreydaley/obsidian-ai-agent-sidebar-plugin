@@ -32,6 +32,7 @@ import {
   CHAT_MSG_ASSISTANT,
   CHAT_MSG_USER,
   CHAT_ERROR,
+  TAB_BTN_GEMINI,
 } from "./helpers/selectors";
 
 const MOCK_RESPONSE = "Hello from mock";
@@ -317,5 +318,88 @@ describe("chat-interaction: openai-compat", () => {
     await errorEl.waitFor({ state: "visible", timeout: 15_000 });
     const errorText = await errorEl.textContent();
     expect(errorText).toBeTruthy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gemini (gemini) — API mode with mock server
+//
+// Spike result: Google AI SDK constructs URL as
+//   ${baseUrl}/v1beta/models/gemini-test:streamGenerateContent?alt=sse
+// (confirmed from SDK source: RequestUrl.toString() uses requestOptions.baseUrl
+// and appends "?alt=sse" for stream=true; model is auto-prefixed as "models/")
+// The SDK parses SSE lines matching /^data\: (.*)(?:\n\n|\r\r|\r\n\r\n)/
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("chat-interaction: gemini", () => {
+  const binary = findObsidianBinary();
+  let mockServer: MockServer;
+  let vault: TestVault;
+  let app: ObsidianInstance;
+  let page: Page;
+
+  beforeAll(async (ctx) => {
+    if (!binary) {
+      ctx.skip();
+      return;
+    }
+
+    mockServer = await startMockApiServer({ response: MOCK_RESPONSE });
+
+    vault = await createTestVault({
+      gemini: {
+        enabled: true,
+        accessMode: "api",
+        selectedModel: "gemini-test",
+        apiKey: "fake-gemini-key",
+        apiBaseUrl: `http://127.0.0.1:${mockServer.port}`,
+      },
+    });
+
+    try {
+      ({ app, page } = await launchObsidian(binary, vault.vaultPath));
+    } catch (err) {
+      await mockServer.close().catch(() => undefined);
+      if (err instanceof ObsidianLaunchError) {
+        ctx.skip();
+        return;
+      }
+      throw err;
+    }
+
+    await openSidebar(page);
+    // Click the Gemini tab (only gemini is enabled, but be explicit)
+    await page.locator(TAB_BTN_GEMINI).waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(TAB_BTN_GEMINI).click();
+  });
+
+  afterEach(async (ctx) => {
+    if (ctx.task.result?.state === "fail" && page) {
+      const artifactDir = path.join(__dirname, "artifacts");
+      fs.mkdirSync(artifactDir, { recursive: true });
+      const safeName = ctx.task.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      await page.screenshot({ path: path.join(artifactDir, `fail-chat-gemini-${safeName}.png`) }).catch(() => undefined);
+    }
+  });
+
+  afterAll(async () => {
+    await quitObsidian(app);
+    await vault?.cleanup();
+    await mockServer?.close().catch(() => undefined);
+  });
+
+  it("sends a message and displays assistant response in chat", async () => {
+    mockServer.setResponse(MOCK_RESPONSE);
+
+    await sendChatMessage(page, "Hello test");
+
+    const userMsg = page.locator(CHAT_MSG_USER);
+    await userMsg.waitFor({ state: "visible", timeout: 10_000 });
+
+    await waitForAssistantMessage(page, MOCK_RESPONSE);
+    // Verified path from spike: /v1beta/models/gemini-test:streamGenerateContent?alt=sse
+    expect(
+      mockServer.requestCount("/v1beta/models/gemini-test:streamGenerateContent?alt=sse")
+    ).toBe(1);
   });
 });

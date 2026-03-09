@@ -77,6 +77,36 @@ function buildModelsResponse(): string {
   return JSON.stringify({ data: [{ id: "mock-model", object: "model" }], object: "list" });
 }
 
+/**
+ * Gemini streaming response in SSE format.
+ *
+ * Spike result: When requestOptions.baseUrl is set, the Google AI SDK constructs
+ * the URL as ${baseUrl}/v1beta/${model}:streamGenerateContent?alt=sse
+ * (confirmed from SDK source: RequestUrl.toString() appends "?alt=sse" for stream=true)
+ *
+ * The SDK's responseLineRE = /^data\: (.*)(?:\n\n|\r\r|\r\n\r\n)/ parses SSE lines,
+ * so the response body must be SSE (not plain JSON).
+ *
+ * Verified format: each chunk is `data: {GenerateContentResponse JSON}\n\n`
+ */
+function buildGeminiSseResponse(responseText: string): string {
+  const payload = JSON.stringify({
+    candidates: [
+      {
+        content: { parts: [{ text: responseText }], role: "model" },
+        finishReason: "STOP",
+      },
+    ],
+  });
+  return `data: ${payload}\n\n`;
+}
+
+function buildGeminiModelsResponse(): string {
+  return JSON.stringify({
+    models: [{ name: "models/gemini-test", supportedGenerationMethods: ["generateContent"] }],
+  });
+}
+
 export async function startMockApiServer(opts: { response?: string } = {}): Promise<MockServer> {
   let cannedResponse = opts.response ?? "Hello from mock";
   const counts: Record<string, number> = {};
@@ -108,6 +138,18 @@ export async function startMockApiServer(opts: { response?: string } = {}): Prom
         // Models list (Anthropic + OpenAI)
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(buildModelsResponse());
+      } else if (req.method === "POST" && url.startsWith("/v1beta/models/")) {
+        // Gemini streamGenerateContent — path: /v1beta/models/{model}:streamGenerateContent?alt=sse
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        });
+        res.end(buildGeminiSseResponse(cannedResponse));
+      } else if (req.method === "GET" && (url === "/v1beta/models" || url.startsWith("/v1beta/models?"))) {
+        // Gemini models list
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(buildGeminiModelsResponse());
       } else {
         res.writeHead(404);
         res.end("Not found");
