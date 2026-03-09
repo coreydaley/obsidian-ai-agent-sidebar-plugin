@@ -2,6 +2,24 @@
 
 An Obsidian plugin that adds a sidebar where you can chat with AI agents (Claude Code, OpenAI Codex, Google Gemini, GitHub Copilot, and any OpenAI-compatible endpoint) and have them read, create, edit, rename, and delete files in your vault. Agents can be used via their CLI tools or directly through their APIs.
 
+## TL;DR
+
+1. **Get access to at least one agent** — either install a CLI tool or grab an API key:
+   - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) or [Anthropic API key](https://console.anthropic.com) → see [API Keys](#api-keys)
+   - [OpenAI Codex CLI](https://github.com/openai/codex) or [OpenAI API key](https://platform.openai.com) → see [API Keys](#api-keys)
+   - [Google Gemini API key](https://aistudio.google.com) (API only) → see [API Keys](#api-keys)
+   - [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) (CLI only)
+   - A local [Ollama](https://ollama.com), vLLM, or LM Studio server
+
+2. **Install the plugin**:
+   - Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/coreydaley/obsidian-ai-agent-sidebar-plugin/releases/latest)
+   - Copy all three files into `<your-vault>/.obsidian/plugins/obsidian-ai-agent-sidebar/`
+   - In Obsidian: **Settings → Community Plugins → enable "AI Agent Sidebar"**
+
+3. **Open the sidebar** from the ribbon icon or **Ctrl/Cmd+P → "Open AI Agent Sidebar"** and start chatting.
+
+---
+
 ## Features
 
 - **Multi-agent tabs**: Switch between enabled agents without losing conversation history
