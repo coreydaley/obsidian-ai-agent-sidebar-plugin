@@ -373,6 +373,137 @@ describe("CLI/API runner equivalence", () => {
 });
 
 // ---------------------------------------------------------------------------
+// clearHistory
+// ---------------------------------------------------------------------------
+
+describe("clearHistory", () => {
+  it("getHistory() returns [] after send + complete + clearHistory", async () => {
+    await triggerSend();
+    runner.emit("complete");
+    tab.clearHistory();
+    expect(tab.getHistory()).toEqual([]);
+  });
+
+  it("empty state element re-appears after clearHistory", async () => {
+    await triggerSend();
+    runner.emit("complete");
+    tab.clearHistory();
+    expect(container.querySelector(".ai-sidebar-empty")).not.toBeNull();
+  });
+
+  it("no user or assistant message elements in DOM after clearHistory", async () => {
+    await triggerSend();
+    runner.emit("complete");
+    tab.clearHistory();
+    expect(container.querySelector('[data-testid="ai-agent-chat-message-user"]')).toBeNull();
+    expect(container.querySelector('[data-testid="ai-agent-chat-message-assistant"]')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// context payload
+// ---------------------------------------------------------------------------
+
+describe("context payload", () => {
+  const mockAppWithFile = {
+    workspace: { getActiveFile: () => ({ path: "notes/active.md" }) },
+    vault: {
+      read: async () => "# Active Note\nSome content here",
+      adapter: { basePath: "/test-vault" },
+    },
+  } as unknown as App;
+
+  it("vaultPath is set from vault adapter basePath", async () => {
+    const localRunner = new MockRunner();
+    const localTab = new AgentChatTab(document.createElement("div"), localRunner, mockDetection, mockAppWithFile, mockPlugin);
+    const input = localTab["containerEl"].querySelector('[data-testid="ai-agent-chat-input"]') as HTMLTextAreaElement;
+    const btn = localTab["containerEl"].querySelector('[data-testid="ai-agent-chat-submit"]') as HTMLButtonElement;
+    input.value = "hello";
+    btn.click();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(JSON.parse(localRunner.runCalls[0].context).vaultPath).toBe("/test-vault");
+    localTab.destroy();
+  });
+
+  it("activeFileContent is included when active file exists", async () => {
+    const localRunner = new MockRunner();
+    const localTab = new AgentChatTab(document.createElement("div"), localRunner, mockDetection, mockAppWithFile, mockPlugin);
+    const input = localTab["containerEl"].querySelector('[data-testid="ai-agent-chat-input"]') as HTMLTextAreaElement;
+    const btn = localTab["containerEl"].querySelector('[data-testid="ai-agent-chat-submit"]') as HTMLButtonElement;
+    input.value = "hello";
+    btn.click();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(JSON.parse(localRunner.runCalls[0].context).activeFileContent).toBe("# Active Note\nSome content here");
+    localTab.destroy();
+  });
+
+  it("activeFileContent is null when no active file", async () => {
+    await triggerSend();
+    expect(JSON.parse(runner.runCalls[0].context).activeFileContent).toBeNull();
+  });
+
+  it("activeFileContent is truncated at 8192 bytes", async () => {
+    const bigApp = {
+      workspace: { getActiveFile: () => ({ path: "big.md" }) },
+      vault: {
+        read: async () => "x".repeat(20_000),
+        adapter: { basePath: "/vault" },
+      },
+    } as unknown as App;
+    const localRunner = new MockRunner();
+    const localTab = new AgentChatTab(document.createElement("div"), localRunner, mockDetection, bigApp, mockPlugin);
+    const input = localTab["containerEl"].querySelector('[data-testid="ai-agent-chat-input"]') as HTMLTextAreaElement;
+    const btn = localTab["containerEl"].querySelector('[data-testid="ai-agent-chat-submit"]') as HTMLButtonElement;
+    input.value = "hello";
+    btn.click();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(JSON.parse(localRunner.runCalls[0].context).activeFileContent.length).toBe(8192);
+    localTab.destroy();
+  });
+
+  it("activeFileContent is null when vault.read throws", async () => {
+    const errApp = {
+      workspace: { getActiveFile: () => ({ path: "notes/active.md" }) },
+      vault: {
+        read: async () => { throw new Error("read error"); },
+        adapter: { basePath: "/vault" },
+      },
+    } as unknown as App;
+    const localRunner = new MockRunner();
+    const localTab = new AgentChatTab(document.createElement("div"), localRunner, mockDetection, errApp, mockPlugin);
+    const input = localTab["containerEl"].querySelector('[data-testid="ai-agent-chat-input"]') as HTMLTextAreaElement;
+    const btn = localTab["containerEl"].querySelector('[data-testid="ai-agent-chat-submit"]') as HTMLButtonElement;
+    input.value = "hello";
+    btn.click();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(JSON.parse(localRunner.runCalls[0].context).activeFileContent).toBeNull();
+    localTab.destroy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Enter-key send
+// ---------------------------------------------------------------------------
+
+describe("Enter-key send", () => {
+  it("Enter triggers send", async () => {
+    const input = container.querySelector('[data-testid="ai-agent-chat-input"]') as HTMLTextAreaElement;
+    input.value = "enter message";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(runner.runCalls).toHaveLength(1);
+  });
+
+  it("Shift+Enter does not trigger send", async () => {
+    const input = container.querySelector('[data-testid="ai-agent-chat-input"]') as HTMLTextAreaElement;
+    input.value = "shift enter message";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", shiftKey: true, bubbles: true }));
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(runner.runCalls).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Destroy/recreate lifecycle
 // ---------------------------------------------------------------------------
 
