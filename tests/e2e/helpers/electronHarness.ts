@@ -214,6 +214,7 @@ async function launchObsidianLinux(
   // --no-sandbox is required in some CI/VM environments.
   const proc = spawn(binaryPath, [
     "--no-sandbox",
+    "--disable-gpu",
     `--remote-debugging-port=${port}`,
   ], {
     detached: true,

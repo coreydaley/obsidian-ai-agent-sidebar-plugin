@@ -14,7 +14,7 @@ import {
   OPENAI_COMPAT_BASE_URL,
   OPENAI_COMPAT_API_KEY,
   OPENAI_COMPAT_MODEL,
-  ENABLE_TOGGLE_ANY,
+  ENABLE_TOGGLE_OPENAI_COMPAT,
 } from "./helpers/selectors";
 
 const binary = findObsidianBinary();
@@ -103,12 +103,10 @@ describe.skipIf(!binary)("settings-ui", () => {
   });
 
   it("enable toggle is present and its checked state changes when clicked", async () => {
-    const toggle = page.locator(ENABLE_TOGGLE_ANY).first();
+    // Use the openai-compat toggle: apiKeyOptional=true means it is always enabled
+    // regardless of detection state, so no need to wait for AgentDetector to finish.
+    const toggle = page.locator(ENABLE_TOGGLE_OPENAI_COMPAT);
     await toggle.waitFor({ state: "visible", timeout: 10_000 });
-
-    // Wait for detection to complete before clicking — the checkbox is disabled
-    // while AgentDetector runs, and on slower CI runners this can take a while.
-    await page.locator(".ais-card-body").first().waitFor({ state: "visible", timeout: 30_000 });
 
     const checkbox = toggle.locator('input[type="checkbox"]');
     const beforeState = await checkbox.isChecked();
