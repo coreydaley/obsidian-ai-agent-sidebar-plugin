@@ -13,6 +13,13 @@
  * command which passes the vault path via Launch Services (not as a CLI arg) and
  * enables Chrome DevTools via --remote-debugging-port. We then connect via CDP.
  *
+ * Environment injection:
+ * The `spawn("open", ...)` call passes an explicit `env` option merging `process.env`
+ * with any `extraEnv` supplied by the caller. When `open -a` is invoked from a process
+ * context (not Finder/Dock), the launched app inherits the `open` process's environment.
+ * This allows E2E tests to inject env vars (e.g., API base URL overrides, fake API keys)
+ * into the Obsidian process without modifying global process.env.
+ *
  * Vault registry: Before launching, the test vault is registered in Obsidian's global
  * obsidian.json with "open":true. All other vaults have "open" cleared so Obsidian
  * opens the test vault rather than restoring any previously-open vault. The original
@@ -156,19 +163,26 @@ function getAppPath(binaryPath: string): string {
 async function launchObsidianMacOS(
   binaryPath: string,
   vaultPath: string,
-  port: number
+  port: number,
+  extraEnv?: Record<string, string>
 ): Promise<Browser> {
   const appPath = getAppPath(binaryPath);
   // Use macOS `open -a` to launch Obsidian via Launch Services:
   //   - vault path passed as file argument (opens via NSApp openFile, not CLI)
   //   - --args passes additional flags to the app process
+  //   - env merges process.env with extraEnv so test-injected vars (API overrides,
+  //     fake keys) are visible to the Obsidian process
   spawn("open", [
     "-a", appPath,
     vaultPath,
     "--args",
     `--remote-debugging-port=${port}`,
     "--inspect=0",
-  ], { detached: true, stdio: "ignore" });
+  ], {
+    detached: true,
+    stdio: "ignore",
+    env: { ...process.env, ...(extraEnv ?? {}) },
+  });
 
   return waitForCdp(port, 30_000);
 }
@@ -176,7 +190,7 @@ async function launchObsidianMacOS(
 export async function launchObsidian(
   binaryPath: string,
   vaultPath: string,
-  options: { keepSettingsOpen?: boolean } = {}
+  options: { keepSettingsOpen?: boolean; extraEnv?: Record<string, string> } = {}
 ): Promise<{ app: ObsidianInstance; page: Page }> {
   if (process.platform !== "darwin") {
     // On non-macOS, fall back to electron.launch (works if no CLI mode issue)
@@ -199,7 +213,7 @@ export async function launchObsidian(
   let browser: Browser;
   try {
     const port = await findFreePort();
-    browser = await launchObsidianMacOS(binaryPath, vaultPath, port);
+    browser = await launchObsidianMacOS(binaryPath, vaultPath, port, options.extraEnv);
   } catch (err) {
     unregisterTestVault(vaultId, originalContent);
     throw err;

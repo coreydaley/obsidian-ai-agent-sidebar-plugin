@@ -10,7 +10,21 @@ export interface TestVault {
   cleanup: () => Promise<void>;
 }
 
-export async function createTestVault(): Promise<TestVault> {
+export interface AgentSettingsOverride {
+  enabled?: boolean;
+  extraArgs?: string;
+  yoloMode?: boolean;
+  accessMode?: "cli" | "api";
+  selectedModel?: string;
+  openaiCompatBaseUrl?: string;
+  openaiCompatApiKey?: string;
+  /** Override API base URL (for mock test servers) */
+  apiBaseUrl?: string;
+  /** Override API key (for mock test servers) */
+  apiKey?: string;
+}
+
+export async function createTestVault(agentSettings?: Record<string, AgentSettingsOverride>): Promise<TestVault> {
   const mainJs = path.join(PROJECT_ROOT, "main.js");
   if (!fs.existsSync(mainJs)) {
     throw new Error("Plugin not built — run 'npm run build' first.");
@@ -32,17 +46,24 @@ export async function createTestVault(): Promise<TestVault> {
     JSON.stringify({ safeMode: false })
   );
 
-  // Disable all agents so tests start from a known baseline (no CLI tools or API
-  // keys on the test machine should affect what the sidebar renders).
+  // Disable all agents by default; merge any agentSettings overrides supplied by the caller.
+  const defaultAgents: Record<string, AgentSettingsOverride> = {
+    claude:        { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
+    codex:         { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
+    gemini:        { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
+    copilot:       { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
+    "openai-compat": { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
+  };
+  const mergedAgents: Record<string, AgentSettingsOverride> = { ...defaultAgents };
+  if (agentSettings) {
+    for (const [id, overrides] of Object.entries(agentSettings)) {
+      mergedAgents[id] = { ...defaultAgents[id], ...overrides };
+    }
+  }
   fs.writeFileSync(
     path.join(pluginDir, "data.json"),
     JSON.stringify({
-      agents: {
-        claude:  { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
-        codex:   { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
-        gemini:  { enabled: false, extraArgs: "", yoloMode: false, accessMode: "api" },
-        copilot: { enabled: false, extraArgs: "", yoloMode: false, accessMode: "cli" },
-      },
+      agents: mergedAgents,
       persistConversations: false,
       debugMode: false,
     })
