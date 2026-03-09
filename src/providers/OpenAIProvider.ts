@@ -44,12 +44,16 @@ export class OpenAIProvider implements ProviderAdapter {
     const resp = await this.client.models.list();
     return resp.data
       .map((m) => m.id)
-      .filter((id) => id.startsWith("gpt-") || /^o\d/.test(id))
+      .filter(filterOpenAIModelId)
       .sort();
   }
 }
 
-function buildSystemPrompt(vaultPath: string, activeFileContent: string | null): string {
+export function filterOpenAIModelId(id: string): boolean {
+  return id.startsWith("gpt-") || /^o\d/.test(id);
+}
+
+export function buildSystemPrompt(vaultPath: string, activeFileContent: string | null): string {
   const MAX_CONTEXT_BYTES = 8 * 1024;
   const truncated = activeFileContent ? activeFileContent.slice(0, MAX_CONTEXT_BYTES) : null;
   const contextSection = truncated

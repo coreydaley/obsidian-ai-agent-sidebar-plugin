@@ -1,16 +1,24 @@
-import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
+import type { Content } from "@google/generative-ai";
 import { requestUrl } from "obsidian";
 import type { ChatMessage, ProviderAdapter } from "../types";
 
 export class GeminiProvider implements ProviderAdapter {
-  private genAI: GoogleGenerativeAI;
   private apiKey: string;
+  private baseURL?: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, baseURL?: string) {
     this.apiKey = apiKey;
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.baseURL = baseURL;
   }
 
+  /**
+   * Stream a Gemini chat response using a direct fetch call.
+   *
+   * The Google AI SDK's streaming path uses response.body.pipeThrough(TextDecoderStream)
+   * and ReadableStream.tee() which do not yield data in Obsidian's Electron renderer
+   * (the stream closes immediately with zero chunks). Using fetch + response.text() with
+   * manual SSE parsing bypasses this limitation while preserving the same wire format.
+   */
   async *stream(messages: ChatMessage[], context: string, model: string): AsyncIterable<string> {
     const { vaultPath, activeFileContent } = JSON.parse(context) as {
       vaultPath: string;
@@ -18,40 +26,52 @@ export class GeminiProvider implements ProviderAdapter {
     };
 
     const systemInstruction = buildSystemPrompt(vaultPath, activeFileContent);
-
-    const genModel = this.genAI.getGenerativeModel({
-      model,
-      systemInstruction,
-    });
-
-    // Gemini requires alternating user/model turns; no system role in messages
-    // Ensure alternating: merge consecutive same-role messages if needed
-    const contents: Content[] = [];
-    for (const msg of messages) {
-      const role = msg.role === "assistant" ? "model" : "user";
-      const last = contents[contents.length - 1];
-      if (last && last.role === role) {
-        // Merge with previous same-role message
-        (last.parts as { text: string }[])[0].text += "\n" + msg.content;
-      } else {
-        contents.push({ role, parts: [{ text: msg.content }] });
-      }
-    }
+    const contents = mergeGeminiMessages(messages);
 
     // Gemini requires the last message to be from the user
     if (contents.length === 0 || contents[contents.length - 1].role !== "user") {
       return;
     }
 
-    const history = contents.slice(0, -1);
-    const lastUserContent = contents[contents.length - 1].parts[0] as { text: string };
+    const baseUrl = (this.baseURL ?? "https://generativelanguage.googleapis.com").replace(/\/$/, "");
+    const url = `${baseUrl}/v1beta/models/${model}:streamGenerateContent?alt=sse`;
 
-    const chat = genModel.startChat({ history });
-    const result = await chat.sendMessageStream(lastUserContent.text);
+    // Use Obsidian's requestUrl (guaranteed to work in the plugin context) rather than
+    // native fetch, which has issues with streaming response bodies in Electron's renderer.
+    const r = await requestUrl({
+      url,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": this.apiKey,
+      },
+      body: JSON.stringify({
+        system_instruction: { role: "system", parts: [{ text: systemInstruction }] },
+        contents,
+      }),
+      throw: false,
+    });
 
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) yield text;
+    if (r.status !== 200) {
+      throw new Error(`Gemini API error: ${r.status}`);
+    }
+
+    // r.text is the full SSE response body (requestUrl reads the complete response)
+    const text = r.text;
+
+    for (const line of text.split("\n")) {
+      if (!line.startsWith("data: ")) continue;
+      const json = line.slice(6).trim();
+      if (!json) continue;
+      try {
+        const data = JSON.parse(json) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        };
+        const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (candidateText) yield candidateText;
+      } catch {
+        // Skip malformed SSE chunks
+      }
     }
   }
 
@@ -67,7 +87,21 @@ export class GeminiProvider implements ProviderAdapter {
   }
 }
 
-function buildSystemPrompt(vaultPath: string, activeFileContent: string | null): string {
+export function mergeGeminiMessages(messages: ChatMessage[]): Content[] {
+  const contents: Content[] = [];
+  for (const msg of messages) {
+    const role = msg.role === "assistant" ? "model" : "user";
+    const last = contents[contents.length - 1];
+    if (last && last.role === role) {
+      (last.parts as { text: string }[])[0].text += "\n" + msg.content;
+    } else {
+      contents.push({ role, parts: [{ text: msg.content }] });
+    }
+  }
+  return contents;
+}
+
+export function buildSystemPrompt(vaultPath: string, activeFileContent: string | null): string {
   const MAX_CONTEXT_BYTES = 8 * 1024;
   const truncated = activeFileContent ? activeFileContent.slice(0, MAX_CONTEXT_BYTES) : null;
   const contextSection = truncated

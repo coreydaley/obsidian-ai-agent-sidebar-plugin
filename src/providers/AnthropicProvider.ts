@@ -49,7 +49,7 @@ export class AnthropicProvider implements ProviderAdapter {
   }
 }
 
-function buildSystemPrompt(vaultPath: string, activeFileContent: string | null): string {
+export function buildSystemPrompt(vaultPath: string, activeFileContent: string | null): string {
   const MAX_CONTEXT_BYTES = 8 * 1024;
   const truncated = activeFileContent ? activeFileContent.slice(0, MAX_CONTEXT_BYTES) : null;
   const contextSection = truncated
