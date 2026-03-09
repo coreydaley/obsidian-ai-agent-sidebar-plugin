@@ -6,3 +6,4 @@ sprint_id	title	status	created_at	updated_at
 005	API Endpoint Env Var Overrides + Chat E2E Tests	completed	2026-03-08T23:05:28Z	2026-03-08T23:49:04Z
 006	AgentChatTab Unit Tests + CLI/API Mode-Switching Coverage	completed	2026-03-09T00:27:59Z	2026-03-09T00:36:02Z
 007	Comprehensive Test Gap-Filling	completed	2026-03-09T01:26:17Z	2026-03-09T02:13:16Z
+008	Live E2E Tests	completed	2026-03-09T02:40:38Z	2026-03-09T02:46:02Z
