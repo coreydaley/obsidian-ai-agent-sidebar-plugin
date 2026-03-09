@@ -9,7 +9,7 @@
  * are visible when shellEnv first resolves.
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi, afterEach } from "vitest";
 import { createRunner, isValidBaseUrl } from "../../src/runnerFactory";
 import { AgentRunner } from "../../src/AgentRunner";
 import { AgentApiRunner } from "../../src/AgentApiRunner";
@@ -227,6 +227,65 @@ describe("base URL env var override", () => {
     expect(runner).not.toBeInstanceOf(AgentApiRunner);
     const msg = await collectFirstError(runner);
     expect(msg).toMatch(/No base URL configured/i);
+  });
+});
+
+describe("settings-level apiBaseUrl precedence", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("settings apiBaseUrl set to valid URL → runner is AgentApiRunner", async () => {
+    const detection = makeDetection("claude", { hasApiKey: false, apiKeyVar: "" });
+    const base = makeSettings("claude", "api");
+    const settings: PluginSettings = {
+      ...base,
+      agents: {
+        ...base.agents,
+        claude: { ...base.agents.claude, apiKey: "key", apiBaseUrl: "http://127.0.0.1:9999" },
+      },
+    };
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).toBeInstanceOf(AgentApiRunner);
+  });
+
+  it("settings apiBaseUrl invalid + env valid → debug log emitted; runner is still AgentApiRunner", async () => {
+    const debugSpy = vi.spyOn(console, "debug");
+    const detection = makeDetection("claude", { hasApiKey: false, apiKeyVar: "" });
+    const base = makeSettings("claude", "api");
+    const settings: PluginSettings = {
+      ...base,
+      debugMode: true,
+      agents: {
+        ...base.agents,
+        claude: { ...base.agents.claude, apiKey: "key", apiBaseUrl: "not-a-valid-url" },
+      },
+    };
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).toBeInstanceOf(AgentApiRunner);
+    expect(debugSpy).toHaveBeenCalledWith(expect.stringContaining("not-a-valid-url"));
+  });
+
+  it("settings apiBaseUrl absent → env var URL is used; no debug log", async () => {
+    const debugSpy = vi.spyOn(console, "debug");
+    const detection = makeDetection("claude", { hasApiKey: false, apiKeyVar: "" });
+    const base = makeSettings("claude", "api");
+    const settings: PluginSettings = {
+      ...base,
+      agents: {
+        ...base.agents,
+        claude: { ...base.agents.claude, apiKey: "key" },
+      },
+    };
+
+    const runner = await createRunner("claude", settings, [detection], mockHandler);
+
+    expect(runner).toBeInstanceOf(AgentApiRunner);
+    expect(debugSpy).not.toHaveBeenCalled();
   });
 });
 

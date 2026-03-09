@@ -12,7 +12,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { AgentRunner } from "../../src/AgentRunner";
 import type { AgentAdapterConfig, AgentId, ChatMessage, FileOp, FileOpResult } from "../../src/types";
-import { writeFakeScript, writeHangingScript } from "./helpers/fakeAgent";
+import { writeFakeScript, writeHangingScript, writeStderrScript, writeExitCodeScript, writeArgCaptureScript } from "./helpers/fakeAgent";
 import { readBlock, splitAt } from "./helpers/streamFixtures";
 
 // ---------------------------------------------------------------------------
@@ -229,6 +229,100 @@ describe(":::file-op protocol parsing", () => {
     expect(result.fileOpStarts).toHaveLength(0);
     const allText = result.tokens.join("");
     expect(allText).toContain("::::");
+  });
+});
+
+describe("stderr events", () => {
+  it("emits stderr event with subprocess stderr text", async () => {
+    const script = writeStderrScript(["from-stderr"]);
+    const runner = new AgentRunner(makeAdapter(script), process.execPath, [], mockHandler);
+
+    const stderrEvents: string[] = [];
+    runner.on("stderr", (t) => stderrEvents.push(t as string));
+
+    const result = await runAndCollect(runner);
+
+    expect(result.errors).toHaveLength(0);
+    expect(stderrEvents.some((e) => e.includes("from-stderr"))).toBe(true);
+  });
+
+  it("stderr text does not appear in token events", async () => {
+    const script = writeStderrScript(["only-stderr-text"]);
+    const runner = new AgentRunner(makeAdapter(script), process.execPath, [], mockHandler);
+
+    const result = await runAndCollect(runner);
+
+    const allTokens = result.tokens.join("");
+    expect(allTokens).not.toContain("only-stderr-text");
+  });
+});
+
+describe("non-zero exit", () => {
+  it("emits error event when subprocess exits non-zero", async () => {
+    const script = writeExitCodeScript(1);
+    const runner = new AgentRunner(makeAdapter(script), process.execPath, [], mockHandler);
+
+    const result = await runAndCollect(runner);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.completed).toBe(false);
+  });
+
+  it("error message contains the exit code", async () => {
+    const script = writeExitCodeScript(1);
+    const runner = new AgentRunner(makeAdapter(script), process.execPath, [], mockHandler);
+
+    const result = await runAndCollect(runner);
+
+    const msg = result.errors[0]?.message ?? "";
+    expect(msg.includes("1") || msg.toLowerCase().includes("exit")).toBe(true);
+  });
+});
+
+describe("extraArgs passthrough", () => {
+  it("extraArgs are forwarded to the subprocess", async () => {
+    const script = writeArgCaptureScript();
+    const adapter: AgentAdapterConfig = {
+      id: "claude" as AgentId,
+      name: "Fake Agent",
+      command: "node",
+      processModel: "one-shot",
+      inputMode: "stdin",
+      buildArgs: (extraArgs) => [script, ...extraArgs],
+    };
+    const runner = new AgentRunner(adapter, process.execPath, ["--flag", "value"], mockHandler);
+
+    const result = await runAndCollect(runner);
+
+    expect(result.errors).toHaveLength(0);
+    const allTokens = result.tokens.join("");
+    const captured = JSON.parse(allTokens) as string[];
+    expect(captured).toContain("--flag");
+    expect(captured).toContain("value");
+  });
+});
+
+describe("yoloArgs passthrough", () => {
+  it("yolo flag appears in subprocess args before other args", async () => {
+    const script = writeArgCaptureScript();
+    const adapter: AgentAdapterConfig = {
+      id: "claude" as AgentId,
+      name: "Fake Agent",
+      command: "node",
+      processModel: "one-shot",
+      inputMode: "stdin",
+      yoloArgs: ["--yes"],
+      buildArgs: (extraArgs) => [script, ...extraArgs],
+    };
+    // Simulate yoloMode: pass [...yoloArgs, ...extraArgs] as extraArgs to runner
+    const runner = new AgentRunner(adapter, process.execPath, [...(adapter.yoloArgs ?? []), "--other"], mockHandler);
+
+    const result = await runAndCollect(runner);
+
+    expect(result.errors).toHaveLength(0);
+    const allTokens = result.tokens.join("");
+    const captured = JSON.parse(allTokens) as string[];
+    expect(captured.indexOf("--yes")).toBeLessThan(captured.indexOf("--other"));
   });
 });
 

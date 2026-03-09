@@ -50,7 +50,7 @@ class HangingProviderAdapter implements ProviderAdapter {
 const mockHandler = {
   execute: async (_op: FileOp): Promise<FileOpResult> => ({
     ok: true,
-    result: { content: "mock content", path: "test.md" },
+    result: {},
   }),
 } as unknown as import("../../src/FileOperationsHandler").FileOperationsHandler;
 
@@ -144,6 +144,72 @@ describe(":::file-op protocol parsing", () => {
     expect(result.errors).toHaveLength(0);
     expect(result.fileOpStarts).toHaveLength(1);
     expect(result.fileOpStarts[0].path).toBe("split-api.md");
+  });
+});
+
+describe(":::file-op protocol parsing — write/delete/rename/list/failure", () => {
+  it("parses a write file-op block", async () => {
+    const block = `:::file-op\n{"op":"write","path":"api-write.md","content":"hello"}\n:::\n`;
+    const provider = new MockProviderAdapter([block]);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
+
+    const result = await runAndCollect(runner);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.fileOpStarts[0].op).toBe("write");
+    expect(result.fileOpResults[0].result.ok).toBe(true);
+  });
+
+  it("parses a delete file-op block", async () => {
+    const block = `:::file-op\n{"op":"delete","path":"api-del.md"}\n:::\n`;
+    const provider = new MockProviderAdapter([block]);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
+
+    const result = await runAndCollect(runner);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.fileOpStarts[0].op).toBe("delete");
+  });
+
+  it("parses a rename file-op block", async () => {
+    const block = `:::file-op\n{"op":"rename","oldPath":"old.md","newPath":"new.md"}\n:::\n`;
+    const provider = new MockProviderAdapter([block]);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
+
+    const result = await runAndCollect(runner);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.fileOpStarts[0].op).toBe("rename");
+    expect((result.fileOpStarts[0] as { oldPath?: string }).oldPath).toBe("old.md");
+  });
+
+  it("parses a list file-op block", async () => {
+    const block = `:::file-op\n{"op":"list","path":"/"}\n:::\n`;
+    const provider = new MockProviderAdapter([block]);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", mockHandler, false, undefined, provider);
+
+    const result = await runAndCollect(runner);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.fileOpStarts[0].op).toBe("list");
+  });
+
+  it("propagates handler failure result to fileOpResults", async () => {
+    const failHandler = {
+      execute: async (_op: FileOp): Promise<FileOpResult> => ({
+        ok: false,
+        error: "not found",
+      }),
+    } as unknown as import("../../src/FileOperationsHandler").FileOperationsHandler;
+
+    const block = `:::file-op\n{"op":"read","path":"missing.md"}\n:::\n`;
+    const provider = new MockProviderAdapter([block]);
+    const runner = new AgentApiRunner("claude", "fake-key", "mock-model", failHandler, false, undefined, provider);
+
+    const result = await runAndCollect(runner);
+
+    expect(result.fileOpResults[0].result.ok).toBe(false);
+    expect((result.fileOpResults[0].result as { error?: string }).error).toBe("not found");
   });
 });
 
