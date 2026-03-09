@@ -158,7 +158,9 @@ async function findFreePort(): Promise<number> {
 }
 
 async function waitForCdp(port: number, timeoutMs: number): Promise<Browser> {
-  const url = `http://localhost:${port}`;
+  // Use 127.0.0.1 rather than localhost: on Node.js 18+/Linux, localhost may
+  // resolve to ::1 (IPv6) while Electron binds CDP to 127.0.0.1 (IPv4).
+  const url = `http://127.0.0.1:${port}`;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -212,22 +214,36 @@ async function launchObsidianLinux(
   // registered in obsidian.json by registerTestVault, so no positional path arg
   // is needed — passing the vault as a CLI arg triggers Obsidian's CLI mode.
   // --no-sandbox is required in some CI/VM environments.
+  // --disable-dev-shm-usage prevents crashes on Linux CI where /dev/shm is small.
   const proc = spawn(binaryPath, [
     "--no-sandbox",
     "--disable-gpu",
+    "--disable-dev-shm-usage",
     `--remote-debugging-port=${port}`,
   ], {
     detached: true,
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
     env: {
       ...process.env,
       DISPLAY: process.env.DISPLAY ?? ":99",
       ...(extraEnv ?? {}),
     },
   });
+
+  // Collect stderr so launch errors are visible in the timeout message
+  const stderrChunks: Buffer[] = [];
+  proc.stderr?.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
   proc.unref();
 
-  return waitForCdp(port, 45_000);
+  try {
+    return await waitForCdp(port, 45_000);
+  } catch (err) {
+    const stderr = Buffer.concat(stderrChunks).toString().slice(0, 2000).trim();
+    const detail = stderr ? `\nStderr: ${stderr}` : "";
+    throw new ObsidianLaunchError(
+      (err instanceof Error ? err.message : String(err)) + detail
+    );
+  }
 }
 
 export async function launchObsidian(

@@ -107,12 +107,30 @@ function buildGeminiModelsResponse(): string {
   });
 }
 
+// CORS headers required because SDK v0.78+ (Anthropic) and v6+ (OpenAI) use the
+// global `fetch` in Electron renderer, which enforces Chromium's CORS policy.
+// Real production APIs return these headers; the mock must too.
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Max-Age": "86400",
+};
+
 export async function startMockApiServer(opts: { response?: string } = {}): Promise<MockServer> {
   let cannedResponse = opts.response ?? "Hello from mock";
   const counts: Record<string, number> = {};
 
   const server = http.createServer((req, res) => {
     const url = req.url ?? "/";
+
+    // Handle CORS preflight — do not increment request counts for OPTIONS
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, CORS_HEADERS);
+      res.end();
+      return;
+    }
+
     counts[url] = (counts[url] ?? 0) + 1;
 
     // Consume request body (don't hang the connection)
@@ -121,6 +139,7 @@ export async function startMockApiServer(opts: { response?: string } = {}): Prom
       if (req.method === "POST" && url === "/v1/messages") {
         // Anthropic messages API
         res.writeHead(200, {
+          ...CORS_HEADERS,
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
@@ -129,6 +148,7 @@ export async function startMockApiServer(opts: { response?: string } = {}): Prom
       } else if (req.method === "POST" && url === "/v1/chat/completions") {
         // OpenAI chat completions API
         res.writeHead(200, {
+          ...CORS_HEADERS,
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
@@ -136,11 +156,12 @@ export async function startMockApiServer(opts: { response?: string } = {}): Prom
         res.end(buildOpenAiSse(cannedResponse));
       } else if (req.method === "GET" && (url === "/v1/models" || url.startsWith("/v1/models?"))) {
         // Models list (Anthropic + OpenAI)
-        res.writeHead(200, { "Content-Type": "application/json" });
+        res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "application/json" });
         res.end(buildModelsResponse());
       } else if (req.method === "POST" && url.startsWith("/v1beta/models/")) {
         // Gemini streamGenerateContent — path: /v1beta/models/{model}:streamGenerateContent?alt=sse
         res.writeHead(200, {
+          ...CORS_HEADERS,
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
@@ -148,10 +169,10 @@ export async function startMockApiServer(opts: { response?: string } = {}): Prom
         res.end(buildGeminiSseResponse(cannedResponse));
       } else if (req.method === "GET" && (url === "/v1beta/models" || url.startsWith("/v1beta/models?"))) {
         // Gemini models list
-        res.writeHead(200, { "Content-Type": "application/json" });
+        res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "application/json" });
         res.end(buildGeminiModelsResponse());
       } else {
-        res.writeHead(404);
+        res.writeHead(404, CORS_HEADERS);
         res.end("Not found");
       }
     });
