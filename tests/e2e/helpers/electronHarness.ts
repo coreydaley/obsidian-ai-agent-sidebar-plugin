@@ -1,32 +1,39 @@
 /**
  * electronHarness.ts — Launch and tear down Obsidian for E2E testing.
  *
- * Tested with: Obsidian 1.12.4 (macOS arm64)
+ * Tested with: Obsidian 1.12.4 (macOS arm64), Obsidian AppImage (Linux/CI)
  *
  * Trust modal text matched: "Trust author and enable plugin"
  * If this text changes in future Obsidian versions, a warning is logged rather than
  * silently clicking an unknown button.
  *
- * Launch strategy:
+ * Launch strategy (macOS):
  * Obsidian's binary acts as a CLI tool when invoked with positional args, regardless
  * of the "cli" setting in obsidian.json. To launch the GUI, we use macOS's `open -a`
  * command which passes the vault path via Launch Services (not as a CLI arg) and
  * enables Chrome DevTools via --remote-debugging-port. We then connect via CDP.
  *
+ * Launch strategy (Linux):
+ * On Linux the vault is pre-registered in obsidian.json with "open":true before
+ * launch. The binary (or AppRun entry point from an extracted AppImage) is spawned
+ * directly with --remote-debugging-port. Obsidian reads obsidian.json on startup
+ * and opens the registered vault automatically, avoiding the CLI-mode issue.
+ * Set OBSIDIAN_BINARY to the extracted AppRun path, e.g.:
+ *   ./Obsidian.AppImage --appimage-extract   # → squashfs-root/
+ *   OBSIDIAN_BINARY=/tmp/squashfs-root/AppRun
+ *
  * Environment injection:
- * The `spawn("open", ...)` call passes an explicit `env` option merging `process.env`
- * with any `extraEnv` supplied by the caller. When `open -a` is invoked from a process
- * context (not Finder/Dock), the launched app inherits the `open` process's environment.
- * This allows E2E tests to inject env vars (e.g., API base URL overrides, fake API keys)
- * into the Obsidian process without modifying global process.env.
+ * The spawn call passes an explicit `env` option merging `process.env` with any
+ * `extraEnv` supplied by the caller. This allows E2E tests to inject env vars
+ * (e.g., API base URL overrides, fake API keys) into the Obsidian process.
  *
  * Vault registry: Before launching, the test vault is registered in Obsidian's global
  * obsidian.json with "open":true. All other vaults have "open" cleared so Obsidian
  * opens the test vault rather than restoring any previously-open vault. The original
  * obsidian.json is restored after Obsidian quits.
  *
- * Limitation: Obsidian must not already be running (single-instance app on macOS).
- * If it is running, the launch is skipped rather than killing user data.
+ * Limitation: Obsidian must not already be running (single-instance app).
+ * If it is running, an ObsidianLaunchError is thrown rather than killing user data.
  */
 import * as crypto from "crypto";
 import * as fs from "fs";
@@ -92,6 +99,7 @@ function registerTestVault(vaultPath: string): { vaultId: string; originalConten
   const vaultId = crypto.randomBytes(8).toString("hex");
   config.vaults[vaultId] = { path: vaultPath, ts: Date.now(), open: true };
 
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
   fs.writeFileSync(configPath, JSON.stringify(config));
   return { vaultId, originalContent };
 }
@@ -114,7 +122,9 @@ function unregisterTestVault(vaultId: string, originalContent: string): void {
 
 function isObsidianRunning(): boolean {
   try {
-    const result = execSync("pgrep -x Obsidian", { stdio: ["pipe", "pipe", "pipe"] }).toString().trim();
+    // macOS process name is "Obsidian" (capitalised); Linux is "obsidian" (lowercase).
+    const cmd = process.platform === "darwin" ? "pgrep -x Obsidian" : "pgrep -x obsidian";
+    const result = execSync(cmd, { stdio: ["pipe", "pipe", "pipe"] }).toString().trim();
     return result.length > 0;
   } catch {
     return false;
@@ -187,16 +197,40 @@ async function launchObsidianMacOS(
   return waitForCdp(port, 30_000);
 }
 
+async function launchObsidianLinux(
+  binaryPath: string,
+  port: number,
+  extraEnv?: Record<string, string>
+): Promise<Browser> {
+  // Spawn the binary (or AppRun entry point) directly. The vault is already
+  // registered in obsidian.json by registerTestVault, so no positional path arg
+  // is needed — passing the vault as a CLI arg triggers Obsidian's CLI mode.
+  // --no-sandbox is required in some CI/VM environments.
+  const proc = spawn(binaryPath, [
+    "--no-sandbox",
+    `--remote-debugging-port=${port}`,
+  ], {
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      DISPLAY: process.env.DISPLAY ?? ":99",
+      ...(extraEnv ?? {}),
+    },
+  });
+  proc.unref();
+
+  return waitForCdp(port, 45_000);
+}
+
 export async function launchObsidian(
   binaryPath: string,
   vaultPath: string,
   options: { keepSettingsOpen?: boolean; extraEnv?: Record<string, string> } = {}
 ): Promise<{ app: ObsidianInstance; page: Page }> {
-  if (process.platform !== "darwin") {
-    // On non-macOS, fall back to electron.launch (works if no CLI mode issue)
+  if (process.platform !== "darwin" && process.platform !== "linux") {
     throw new ObsidianLaunchError(
-      "Non-macOS platform: direct electron.launch not supported with Obsidian CLI mode. " +
-      "Set OBSIDIAN_BINARY and ensure Obsidian CLI mode is disabled."
+      `Unsupported platform: ${process.platform}. E2E tests require macOS or Linux.`
     );
   }
 
@@ -213,7 +247,11 @@ export async function launchObsidian(
   let browser: Browser;
   try {
     const port = await findFreePort();
-    browser = await launchObsidianMacOS(binaryPath, vaultPath, port, options.extraEnv);
+    if (process.platform === "darwin") {
+      browser = await launchObsidianMacOS(binaryPath, vaultPath, port, options.extraEnv);
+    } else {
+      browser = await launchObsidianLinux(binaryPath, port, options.extraEnv);
+    }
   } catch (err) {
     unregisterTestVault(vaultId, originalContent);
     throw err;
@@ -249,7 +287,11 @@ export async function launchObsidian(
     close: async () => {
       try { await browser.close(); } catch { /* ignore */ }
       // Quit the Obsidian GUI process and wait for it to fully exit
-      try { execSync("osascript -e 'quit app \"Obsidian\"'", { stdio: "ignore" }); } catch { /* ignore */ }
+      if (process.platform === "darwin") {
+        try { execSync("osascript -e 'quit app \"Obsidian\"'", { stdio: "ignore" }); } catch { /* ignore */ }
+      } else {
+        try { execSync("pkill -x obsidian", { stdio: "ignore" }); } catch { /* ignore */ }
+      }
       await waitForObsidianToExit(10_000);
       unregisterTestVault(vaultId, originalContent);
     },
