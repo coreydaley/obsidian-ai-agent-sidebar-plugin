@@ -83,7 +83,11 @@ jobs:
             -o /tmp/Obsidian.AppImage
           chmod +x /tmp/Obsidian.AppImage
           cd /tmp && ./Obsidian.AppImage --appimage-extract > /dev/null
-          echo "OBSIDIAN_BINARY=/tmp/squashfs-root/AppRun" >> "$GITHUB_ENV"
+          # Point directly to the Obsidian binary, not AppRun: AppRun contains a
+          # hardcoded path /obsidian that only works under a FUSE mount, not when
+          # extracted. The binary uses RPATH=$ORIGIN so it finds bundled libs
+          # in the same directory without any LD_LIBRARY_PATH setup needed.
+          echo "OBSIDIAN_BINARY=/tmp/squashfs-root/obsidian" >> "$GITHUB_ENV"
 
       - name: Build plugin
         run: npm run build
