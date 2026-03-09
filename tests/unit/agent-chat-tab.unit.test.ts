@@ -63,7 +63,7 @@ const mockApp = {
 } as unknown as App;
 
 const mockPlugin = {
-  settings: { debugMode: false } as PluginSettings,
+  settings: { debugMode: false, agents: { claude: { accessMode: "cli" } } } as unknown as PluginSettings,
 } as unknown as AgentSidebarPlugin;
 
 // ---------------------------------------------------------------------------
