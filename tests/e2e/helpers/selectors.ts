@@ -27,6 +27,24 @@ export const TAB_BTN_GEMINI = '[data-testid="ai-agent-tab-gemini"]';
 export const TAB_BTN_COPILOT = '[data-testid="ai-agent-tab-copilot"]';
 export const TAB_BTN_OPENAI_COMPAT = '[data-testid="ai-agent-tab-openai-compat"]';
 
+// Mode row (only for dual-mode agents: claude, codex)
+export const MODE_ROW_CLAUDE = '[data-testid="ai-agent-mode-row-claude"]';
+export const MODE_ROW_CODEX = '[data-testid="ai-agent-mode-row-codex"]';
+
+// Mode flip switch label (contains the checkbox input)
+export const MODE_FLIP_CLAUDE = '[data-testid="ai-agent-mode-flip-claude"]';
+export const MODE_FLIP_CODEX = '[data-testid="ai-agent-mode-flip-codex"]';
+
+// Extra CLI args inputs (present in CLI mode for CLI-capable agents)
+export const EXTRA_ARGS_CLAUDE = '[data-testid="ai-agent-extra-args-claude"]';
+export const EXTRA_ARGS_CODEX = '[data-testid="ai-agent-extra-args-codex"]';
+export const EXTRA_ARGS_COPILOT = '[data-testid="ai-agent-extra-args-copilot"]';
+
+// Model field rows (present in API mode for API-capable agents)
+export const MODEL_FIELD_CLAUDE = '[data-testid="ai-agent-model-field-claude"]';
+export const MODEL_FIELD_CODEX = '[data-testid="ai-agent-model-field-codex"]';
+export const MODEL_FIELD_GEMINI = '[data-testid="ai-agent-model-field-gemini"]';
+
 // Chat UI selectors
 export const CHAT_INPUT = '[data-testid="ai-agent-chat-input"]';
 export const CHAT_SUBMIT = '[data-testid="ai-agent-chat-submit"]';

@@ -25,6 +25,7 @@ import {
   RIBBON_OPEN_SIDEBAR,
   ENABLE_TOGGLE_CLAUDE,
   ENABLE_TOGGLE_CODEX,
+  ENABLE_TOGGLE_GEMINI,
   ENABLE_TOGGLE_OPENAI_COMPAT,
   TAB_BTN_CLAUDE,
   TAB_BTN_CODEX,
@@ -79,12 +80,13 @@ const ALL_PRESEEDED_AGENTS = [
 ] as const;
 
 // Agents whose settings enable toggle can be clicked in the test environment.
-// gemini is excluded: its toggle is disabled unless a real GEMINI_API_KEY env
-// var is detected — the settings-based apiKey field does not satisfy canEnable.
 // openai-compat always has canEnable=true because apiKeyOptional:true in PROVIDERS.
+// gemini is included: canEnable now also checks settings-level apiKey, so the
+// fake-key pre-seeded in the vault is sufficient to enable the toggle.
 const TOGGLE_TESTABLE_AGENTS = [
   { label: "claude",        toggleSelector: ENABLE_TOGGLE_CLAUDE,        tabSelector: TAB_BTN_CLAUDE },
   { label: "codex",         toggleSelector: ENABLE_TOGGLE_CODEX,         tabSelector: TAB_BTN_CODEX },
+  { label: "gemini",        toggleSelector: ENABLE_TOGGLE_GEMINI,        tabSelector: TAB_BTN_GEMINI },
   { label: "openai-compat", toggleSelector: ENABLE_TOGGLE_OPENAI_COMPAT, tabSelector: TAB_BTN_OPENAI_COMPAT },
 ] as const;
 
