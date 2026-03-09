@@ -3,3 +3,4 @@ sprint_id	title	status	created_at	updated_at
 002	Provider-Centric Settings with CLI/API Access Mode	completed	2025-01-01T00:00:00Z	2025-01-01T00:00:00Z
 003	Integration Test Suite	completed	2026-03-08T00:00:00Z	2026-03-08T15:44:09Z
 004	E2E Test Suite (Obsidian UI Automation)	completed	2026-03-08T19:58:21Z	2026-03-08T20:08:10Z
+005	API Endpoint Env Var Overrides + Chat E2E Tests	completed	2026-03-08T23:05:28Z	2026-03-08T23:49:04Z
