@@ -42,7 +42,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.37.0",
+    "@anthropic-ai/sdk": "0.78.0",
     "@google/generative-ai": "0.24.0",
     "openai": "4.85.4"
   }
