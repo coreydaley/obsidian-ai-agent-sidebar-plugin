@@ -19,6 +19,13 @@ These tests exercise the plugin against **real CLIs and real APIs**. They are ex
 - `GEMINI_API_KEY`, `GOOGLE_API_KEY`, or `GOOGLE_GENERATIVE_AI_API_KEY` set in your shell environment (for gemini API)
 - Valid active subscriptions on all accounts
 
+### OpenAI-Compatible Agent (for `openai-compat.e2e-live.test.ts`)
+- Docker Desktop installed and daemon running (`docker info` must succeed)
+- No process already listening on port 11434 (stop any local Ollama instance first)
+- First run downloads ~700 MB Docker image + ~90 MB model; subsequent runs use Docker layer cache
+- Resource usage at runtime: ~400–600 MB RAM; no GPU required
+- `smollm2:135m` responses are minimal but sufficient for smoke testing
+
 Missing prerequisites cause the suite to **fail** with a descriptive error — these tests assume a fully configured system and do not skip.
 
 ## Selectively skipping suites
@@ -39,6 +46,8 @@ Set any of the following env vars to `1` (or any non-empty, non-`0`, non-`false`
 | `SKIP_CODEX_API=1` | Skip codex API suite only |
 | `SKIP_COPILOT_CLI=1` | Skip copilot CLI suite only |
 | `SKIP_GEMINI_API=1` | Skip gemini API suite only |
+| `SKIP_OPENAI_COMPAT=1` | Skip openai-compat suite |
+| `SKIP_OPENAI_COMPAT_API=1` | Skip openai-compat API suite only |
 
 Examples:
 
@@ -68,6 +77,20 @@ Or directly:
 
 ```sh
 npm run test-e2e-live
+```
+
+### OpenAI-Compatible Agent (Docker)
+
+The openai-compat test is **excluded** from `make test-e2e-live` and must be run separately:
+
+```sh
+make test-e2e-openai-compatible
+```
+
+Or directly:
+
+```sh
+npm run test-e2e-openai-compatible
 ```
 
 ## Expected Runtime
