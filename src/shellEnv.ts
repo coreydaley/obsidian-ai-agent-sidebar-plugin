@@ -11,6 +11,13 @@ let resolvedEnvPromise: Promise<Record<string, string>> | null = null;
 export function resolveShellEnv(): Promise<Record<string, string>> {
   if (resolvedEnvPromise) return resolvedEnvPromise;
   resolvedEnvPromise = new Promise((resolve) => {
+    if (process.platform === "win32") {
+      // Windows has no login-shell environment model. API keys and PATH entries
+      // must be set in System Properties (user environment variables), which are
+      // already present in process.env when Obsidian starts.
+      resolve({ ...process.env } as Record<string, string>);
+      return;
+    }
     const shell = process.env.SHELL ?? "/bin/bash";
     let proc: ReturnType<typeof spawn>;
     try {
