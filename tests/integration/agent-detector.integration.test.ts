@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { isAbsolute } from "path";
 
 vi.mock("../../src/shellEnv", () => ({
   resolveShellEnv: vi.fn().mockResolvedValue({}),
@@ -74,8 +75,8 @@ describe("binary detection", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0].isInstalled).toBe(true);
-    // Path must be absolute
-    expect(results[0].path).toMatch(/^\//);
+    // Path must be absolute (cross-platform: /usr/... on Unix, C:\... on Windows)
+    expect(isAbsolute(results[0].path)).toBe(true);
     expect(results[0].command).toBe("node");
   });
 
