@@ -59,8 +59,8 @@ describe.skipIf(!binary)("sidebar-open", () => {
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
 
-    // Open command palette
-    await page.keyboard.press("Meta+p");
+    // ControlOrMeta = Ctrl on Linux/Windows, Meta (Cmd) on macOS
+    await page.keyboard.press("ControlOrMeta+p");
     const paletteInput = page.locator('input[placeholder*="command"], .prompt-input, input.prompt-input');
     await paletteInput.waitFor({ state: "visible", timeout: 10_000 });
 

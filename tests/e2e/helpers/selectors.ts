@@ -54,7 +54,7 @@ export const CHAT_ERROR = '[data-testid="ai-agent-chat-error"]';
 
 // Obsidian structural selectors (stable aria-labels; change rarely)
 export const RIBBON_OPEN_SIDEBAR = '[aria-label="Open AI agent sidebar"]';
-export const COMMAND_PALETTE_TRIGGER = "Meta+p"; // Mod+P
+export const COMMAND_PALETTE_TRIGGER = "ControlOrMeta+p"; // Mod+P (Ctrl on Linux/Windows, Cmd on macOS)
 export const COMMAND_PALETTE_INPUT = 'input[placeholder*="command"], .prompt-input';
 export const SETTINGS_GEAR = '[aria-label="Settings"]';
 export const SETTINGS_CLOSE = '[aria-label="Close"]';
