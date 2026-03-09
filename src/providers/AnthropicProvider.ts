@@ -4,8 +4,12 @@ import type { ChatMessage, ProviderAdapter } from "../types";
 export class AnthropicProvider implements ProviderAdapter {
   private client: Anthropic;
 
-  constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+  constructor(apiKey: string, baseURL?: string) {
+    this.client = new Anthropic({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+      ...(baseURL ? { baseURL } : {}),
+    });
   }
 
   async *stream(messages: ChatMessage[], context: string, model: string): AsyncIterable<string> {

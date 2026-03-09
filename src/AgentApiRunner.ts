@@ -50,8 +50,8 @@ export class AgentApiRunner extends EventEmitter implements AgentExecutionRunner
   }
 
   private createProvider(agentId: AgentId, apiKey: string, baseURL?: string): ProviderAdapter {
-    if (agentId === "claude") return new AnthropicProvider(apiKey);
-    if (agentId === "codex") return new OpenAIProvider(apiKey);
+    if (agentId === "claude") return new AnthropicProvider(apiKey, baseURL);
+    if (agentId === "codex") return new OpenAIProvider(apiKey, baseURL);
     if (agentId === "gemini") return new GeminiProvider(apiKey);
     if (agentId === "openai-compat") return new OpenAICompatProvider(apiKey, baseURL ?? "http://localhost:11434/v1");
     throw new Error(`No API provider for agent '${agentId}'`);

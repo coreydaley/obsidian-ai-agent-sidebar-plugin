@@ -12,6 +12,10 @@ export interface AgentConfig {
   openaiCompatBaseUrl?: string;
   /** Optional API key for OpenAI-compatible endpoints */
   openaiCompatApiKey?: string;
+  /** Optional API base URL override (takes precedence over env var; intended for local proxies) */
+  apiBaseUrl?: string;
+  /** Optional API key override (takes precedence over env var detection; intended for local proxies) */
+  apiKey?: string;
 }
 
 export interface AgentDetectionResult {

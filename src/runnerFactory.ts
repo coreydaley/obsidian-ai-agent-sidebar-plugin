@@ -11,6 +11,16 @@ import { resolveShellEnv } from "./shellEnv";
 /** Valid model name format: alphanumeric, dots, hyphens only */
 export const MODEL_FORMAT = /^[\w.-]+$/;
 
+/** Validate a base URL override: must be a well-formed http or https URL. */
+export function isValidBaseUrl(s: string): boolean {
+  try {
+    const u = new URL(s.trim());
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export async function createRunner(
   agentId: AgentId,
   settings: PluginSettings,
@@ -58,13 +68,16 @@ export async function createRunner(
       return new AgentApiRunner(agentId, apiKey, selectedModel, fileOpsHandler, settings.debugMode, baseUrl);
     }
 
-    if (!detection?.hasApiKey || !detection.apiKeyVar) {
+    // Settings-level API key takes precedence over env var detection
+    const settingsApiKey = agentConfig.apiKey?.trim();
+
+    if (!settingsApiKey && (!detection?.hasApiKey || !detection.apiKeyVar)) {
       return createErrorRunner("API key not detected. Set the required environment variable in your shell profile.");
     }
 
     // Security: extract only the specific OBSIDIAN_AI_AGENT_SIDEBAR_* key
     const shellEnv = await resolveShellEnv();
-    const apiKey = shellEnv[detection.apiKeyVar];
+    const apiKey = settingsApiKey ?? shellEnv[detection!.apiKeyVar];
     if (!apiKey) {
       return createErrorRunner("API key environment variable is set but empty.");
     }
@@ -73,7 +86,16 @@ export async function createRunner(
     // Security: validate model name format
     const model = MODEL_FORMAT.test(selectedModel) ? selectedModel : provider.defaultModel;
 
-    return new AgentApiRunner(agentId, apiKey, model, fileOpsHandler, settings.debugMode);
+    // Base URL override: settings field takes precedence over env var
+    const settingsBaseUrl = agentConfig.apiBaseUrl?.trim();
+    const rawEnvBaseUrl = provider.apiBaseUrlEnvVar ? shellEnv[provider.apiBaseUrlEnvVar]?.trim() : undefined;
+    const rawBaseUrl = settingsBaseUrl || rawEnvBaseUrl;
+    const baseURL = rawBaseUrl && isValidBaseUrl(rawBaseUrl) ? rawBaseUrl : undefined;
+    if (rawBaseUrl && !baseURL && settings.debugMode) {
+      console.debug(`[runnerFactory] ${agentId}: base URL override '${rawBaseUrl}' is invalid (not http/https); using SDK default`);
+    }
+
+    return new AgentApiRunner(agentId, apiKey, model, fileOpsHandler, settings.debugMode, baseURL);
   }
 
   return createErrorRunner("Unknown access mode.");

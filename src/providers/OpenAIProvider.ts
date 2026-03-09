@@ -4,8 +4,12 @@ import type { ChatMessage, ProviderAdapter } from "../types";
 export class OpenAIProvider implements ProviderAdapter {
   private client: OpenAI;
 
-  constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+  constructor(apiKey: string, baseURL?: string) {
+    this.client = new OpenAI({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+      ...(baseURL ? { baseURL } : {}),
+    });
   }
 
   async *stream(messages: ChatMessage[], context: string, model: string): AsyncIterable<string> {
